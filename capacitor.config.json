@@ -1,0 +1,13 @@
+{
+  "appId": "com.kagnassi.sotramabamako",
+  "appName": "Sotrama Bamako",
+  "webDir": "www",
+  "backgroundColor": "#16110c",
+  "android": {
+    "backgroundColor": "#16110c"
+  },
+  "ios": {
+    "backgroundColor": "#16110c",
+    "contentInset": "never"
+  }
+}

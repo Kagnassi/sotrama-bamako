@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#16110c">
+  <title>Sotrama Bamako</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.webp" type="image/webp">
+  <link rel="apple-touch-icon" href="icons/icon-512.webp">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="loading">Bamako se réveille…</div>
+
+  <!-- HUD -->
+  <div class="hud panel" id="meter">
+    <div class="plate">SOTRAMA · RECETTE DU JOUR</div>
+    <div id="money">0<small>FCFA</small></div>
+    <div class="meta"><span id="clock">06:00</span><span id="dayLabel">Jour 1</span><span><b id="seats">0</b>/22</span></div>
+    <div id="fuel"><span>Carburant</span><div class="bar"><i id="fuelBar"></i></div><b id="fuelText">0 L</b></div>
+  </div>
+  <div class="hud panel" id="guide" hidden>
+    <svg id="arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L34 33 L20 26 L6 33 Z"/></svg>
+    <div><div id="guideLabel"></div><div id="guideName"></div><div id="guideDist"></div></div>
+  </div>
+  <div class="hud" id="side">
+    <canvas id="radar" aria-label="Plan autour du minibus"></canvas>
+    <div class="tools">
+      <button class="tool" id="btnMap" type="button">Plan</button>
+      <button class="tool" id="btnCam" type="button">Caméra</button>
+      <button class="tool" id="btnPause" type="button">Pause</button>
+    </div>
+  </div>
+  <div class="hud panel" id="onboard"></div>
+  <div class="hud" id="speed">0<small>KM/H</small></div>
+  <div class="hud panel" id="toast" role="status" aria-live="polite"></div>
+
+  <div id="pad">
+    <div class="pad-group">
+      <button type="button" data-k="left" aria-label="Tourner à gauche"><svg viewBox="0 0 24 24"><path d="M15.5 4 7 12l8.5 8 1.9-2-6.4-6 6.4-6z"/></svg></button>
+      <button type="button" data-k="right" aria-label="Tourner à droite"><svg viewBox="0 0 24 24"><path d="M8.5 4 17 12l-8.5 8-1.9-2 6.4-6-6.4-6z"/></svg></button>
+    </div>
+    <div class="pad-group">
+      <button type="button" data-k="down">Frein</button>
+      <div class="pad-col">
+        <button type="button" data-k="horn" class="horn">Klaxon</button>
+        <button type="button" data-k="up" class="gas">Gaz</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Title screen and garage -->
+  <div class="overlay garage" id="garage" hidden>
+    <div class="gpanel">
+      <p class="kicker" id="gDay">Jour 1</p>
+      <h1>Sotrama <span>Bamako</span></h1>
+      <p class="lede">Conduis le minibus vert dans 24 quartiers, des deux côtés du fleuve Niger. Remplis les 22 places, fais le plein à temps et rapporte la meilleure recette de 6 h à 20 h.</p>
+      <div class="bank"><span>Économies</span><b id="gSavings">0 F</b><small id="gBest"></small></div>
+      <button class="cta" id="btnStart" type="button">Démarrer le jour 1</button>
+      <h2>Couleurs du minibus</h2>
+      <div class="liveries" id="liveries"></div>
+      <h2>Garage</h2>
+      <div id="upgrades"></div>
+      <p class="gmsg" id="gMsg" role="status"></p>
+      <details class="howto">
+        <summary>Comment jouer</summary>
+        <ul class="rules">
+          <li><span class="dot"></span><span>Arrête-toi dans un <b>cercle blanc</b> : les passagers qui attendent montent.</span></li>
+          <li><span class="dot gold"></span><span>Les <b>cercles dorés</b> sont leurs quartiers : 250 F la course, 300 F s'ils traversent le fleuve, 50 F de plus pour les longs trajets.</span></li>
+          <li><span class="dot red"></span><span>Les <b>cercles rouges</b> sont les stations : le carburant coûte 800 F le litre, payé avec la recette du jour.</span></li>
+          <li><span class="dot red"></span><span>Évite les motos Djakarta, les taxis et les autres Sotrama : un accident coûte 500 à 1 000 F.</span></li>
+        </ul>
+        <p class="keys"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> ou <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire · <kbd>Espace</kbd> frein · <kbd>H</kbd> klaxon · <kbd>M</kbd> plan · <kbd>C</kbd> caméra · <kbd>P</kbd> pause</p>
+      </details>
+      <div class="settings">
+        <button class="small ghost" id="qualityBtn" type="button"></button>
+        <button class="small ghost" id="soundBtn" type="button"></button>
+        <button class="small" id="btnNoAds" type="button" hidden>Retirer les pubs</button>
+        <button class="small ghost" id="btnRestore" type="button" hidden>Restaurer mes achats</button>
+        <a class="small ghost" href="privacy.html">Confidentialité</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseBox" hidden>
+    <div class="card">
+      <p class="kicker">Pause</p>
+      <h1>Le moteur <span>tourne</span></h1>
+      <p class="lede">Les passagers attendent sagement.</p>
+      <div class="actions"><button class="cta" id="btnResume" type="button">Reprendre</button><button class="small ghost" id="btnQuit" type="button">Abandonner la journée</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="endBox" hidden>
+    <div class="card">
+      <p class="kicker">20 h</p>
+      <h1 id="endDay">Jour terminé</h1>
+      <div class="ledger">
+        <div><span>Courses</span><b id="endFares">0</b></div>
+        <div><span>Carburant</span><b id="endFuel">0</b></div>
+        <div><span>Accidents</span><b id="endFines">0</b></div>
+        <div class="total"><span>Recette nette</span><b id="endNet">0</b></div>
+      </div>
+      <p class="lede"><b id="endServed">0</b> passagers déposés. La recette nette va dans tes économies.</p>
+      <div class="actions"><button class="cta" id="btnNext" type="button">Journée suivante</button><button class="small" id="btnDouble" type="button" hidden></button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="panneBox" hidden>
+    <div class="card">
+      <p class="kicker">Panne sèche</p>
+      <h1>Plus une <span>goutte</span></h1>
+      <p class="lede">Le réservoir est vide. Un remorqueur peut t'apporter 10 litres.</p>
+      <div class="actions"><button class="cta" id="btnTowPay" type="button">Payer 6 000 F</button><button class="small" id="btnTowAd" type="button" hidden>Regarder une pub : gratuit</button></div>
+    </div>
+  </div>
+
+  <div class="overlay mapview" id="mapBox" hidden>
+    <canvas id="bigMap" aria-label="Plan de Bamako"></canvas>
+    <button class="small closemap" id="btnCloseMap" type="button">Fermer le plan</button>
+  </div>
+
+  <script src="js/vendor/three.min.js"></script>
+  <script src="js/textures.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/vehicles.js"></script>
+  <script src="js/monetization.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

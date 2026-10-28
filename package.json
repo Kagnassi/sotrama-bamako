@@ -1,0 +1,26 @@
+{
+  "name": "sotrama-bamako",
+  "version": "1.0.0",
+  "description": "Sotrama Bamako : jeu de minibus en 3D dans les rues de Bamako",
+  "author": "Cheickné Kagnassi",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "serve": "npx http-server www -p 8080 -c-1",
+    "sync": "npx cap sync",
+    "android": "npx cap open android",
+    "ios": "npx cap open ios",
+    "icons": "npx @capacitor/assets generate --iconBackgroundColor '#1f8a4c' --splashBackgroundColor '#16110c'"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "8.2.1",
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3",
+    "cordova-plugin-purchase": "13.18.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "8.5.3"
+  }
+}
