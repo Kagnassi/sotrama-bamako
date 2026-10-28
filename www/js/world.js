@@ -147,6 +147,14 @@
       }
     }
     for (const n of nodes) markDisc(n.x, n.z, n.r ? n.r + RING + 4.5 : n.disc + 4);
+    // solid ground (walls), used when the driver walks
+    const solid = new Uint8Array(G.w * G.h);
+    const markSolid = (cx, cz, w, d, ang) => rectPoints(cx, cz, w, d, ang, 0.3, (x, z) => { const c = cellOf(x, z); if (c >= 0) solid[c] = 1; });
+    function walkable(x, z) {
+      if (z > RIVER[0] + 2 && z < RIVER[1] - 2 && !inRoad(x, z)) return false;
+      const c = cellOf(x, z);
+      return c < 0 || !solid[c];
+    }
 
     /* ================= mesh builders ================= */
     function Builder() { return { p: [], n: [], uv: [], c: [], idx: [] }; }
@@ -229,7 +237,7 @@
 
     /* ---- instanced helpers (trees, poles, small objects) ---- */
     const INST = { box: [], cyl: [], cone: [], ico: [], trunk: [], stem: [] };
-    const ECO = quality !== "haute";
+    const ECO = quality === "eco";
     const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
     const M = (x, y, z, sx, sy, sz, rx, ry, rz) => { _e.set(rx || 0, ry || 0, rz || 0); _q.setFromEuler(_e); return new THREE.Matrix4().compose(_p.set(x, y, z), _q, _s.set(sx, sy, sz)); };
     const C = (hex, v) => { const c = new THREE.Color(hex); if (v) c.multiplyScalar(1 - v / 2 + rnd() * v); return c.convertSRGBToLinear(); };
@@ -270,6 +278,7 @@
     const FB = { plaster: Builder(), shutters: Builder(), banco: Builder(), glass: Builder() };
     const roofB = Builder(), doorB = Builder(), signB = Builder();
     function boxFaces(b, cx, y0, cz, w, d, h, ang, tint, uvW, uvH, skipTop) {
+      if (y0 >= 0 && h > 1.5) markSolid(cx, cz, w, d, ang);
       const c = Math.cos(ang), s = Math.sin(ang);
       const P = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
       const corners = [P(-w / 2, -d / 2), P(w / 2, -d / 2), P(w / 2, d / 2), P(-w / 2, d / 2)];
@@ -341,6 +350,13 @@
       ["Daoudabougou", [-60, 290], [60, 290], 0.45, 1], ["Sogoniko", [180, 290], [300, 290], 0.42, 1],
       ["Faladié", [300, 390], [420, 390], 0.5, 1], ["Magnambougou", [420, 190], [620, 230], 0.5, -1],
       ["Kalaban Coura", [-300, 290], [-500, 330], 0.5, 1], ["Sénou", [300, 560], [400, 780], 0.5, 1],
+      ["Point G", [0, -490], [0, -640], 0.7, 1], ["Sébénikoro", [-420, -560], [-560, -700], 0.6, 1],
+      ["Banconi", [560, -200], [760, -150], 0.55, 1], ["Boulkassoumbougou", [560, -200], [540, -480], 0.5, 1],
+      ["Sotuba", [560, -90], [760, -80], 0.6, -1], ["Baco Djicoroni", [-500, 90], [-720, 110], 0.5, -1],
+      ["Kalaban Coro", [-500, 330], [-660, 470], 0.6, 1], ["Yirimadio", [620, 90], [780, 100], 0.6, 1],
+      ["Niamakoro", [300, 390], [300, 560], 0.5, 1], ["Missabougou", [620, 90], [620, 230], 0.5, 1],
+      ["Ouolofobougou", [-360, -190], [-360, -290], 0.5, 1], ["N'Tomikorobougou", [-120, -290], [-120, -390], 0.5, 1],
+      ["Bolibana", [-360, -90], [-360, -190], 0.5, -1],
     ];
     function roadBetween(p, q) {
       const a = byKey[p[0] + "," + p[1]], b = byKey[q[0] + "," + q[1]];
@@ -480,6 +496,136 @@
       for (let t = -len / 2 + 12; t < len / 2 - 6; t += 18) iBox(cx + rd.dx * t, -4, cz + rd.dz * t, rd.w - 2, 2.8, 3, C(0x9c9488), ang);
     }
 
+    /* ---- hospitals ---- */
+    function hospital(cx, cz, ang, name, floors) {
+      reserve(cx, cz, 74, 64, ang);
+      const c = Math.cos(ang), s = Math.sin(ang), P = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
+      const white = C(0xf6f3ec, 0.03), h = floors * 3.4 + 0.6;
+      let p = P(0, -8); boxFaces(FB.plaster, p[0], 0, p[1], 46, 16, h, ang, white, 4, 3);
+      p = P(-16, 10); boxFaces(FB.shutters, p[0], 0, p[1], 14, 20, 7.4, ang, white, 4, 3);
+      p = P(16, 10); boxFaces(FB.shutters, p[0], 0, p[1], 14, 20, 4, ang, C(0xe4eee6), 4, 3);
+      p = P(0, 2.4); iBox(p[0], 3.1, p[1], 12, 0.35, 5, C(0xc0392b), ang);
+      for (const lx of [-5.5, 5.5]) { p = P(lx, 4.6); iCyl(p[0], 1.55, p[1], 0.12, 3.1, C(0xf6f3ec)); }
+      p = P(0, 2); iBox(p[0], 0, p[1], 3, 2.6, 0.2, C(0x1d2a33), ang);
+      const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.hospitalSign(name) }));
+      p = P(0, 0.4); sign.position.set(p[0], h + 2.2, p[1]); sign.scale.set(13, 3.6, 1); scene.add(sign);
+      for (let k = 0; k < 3; k++) { // ambulances
+        p = P(-19 + k * 3.4, 25); iBox(p[0], 0.45, p[1], 2.1, 2.1, 5, C(0xfbfbf8), ang);
+        iBox(p[0], 1.4, p[1], 2.14, 0.35, 5.04, C(0xc0392b), ang); iBox(p[0], 2.55, p[1], 0.9, 0.2, 0.4, C(0x3d7fd8), ang);
+      }
+      for (let k = 0; k < 5; k++) { p = P(rr(4, 30), rr(26, 30)); tree(p[0], p[1], "neem"); }
+      landmarks.push({ name, x: cx, z: cz, kind: "hospital" });
+    }
+    hospital(-178, -238, 0, "Gabriel Touré", 3);
+    hospital(50, -580, -Math.PI / 2, "Point G", 4);
+
+    /* ---- restaurants, maquis and dibiteries ---- */
+    const food = [], vendors = [], keep = [];
+    const kept = (x, z) => keep.some(([kx, kz, r]) => Math.abs(kx - x) < r && Math.abs(kz - z) < r);
+    const RESTOS = [
+      ["Le Baobab", "restaurant"], ["La Paillote", "maquis"], ["Chez Fati", "dibiterie"], ["Le Fleuve", "restaurant"],
+      ["Le Djembé", "maquis"], ["du Carrefour", "dibiterie"], ["Wassa", "restaurant"], ["Sanké", "maquis"],
+      ["Teriya", "restaurant"], ["Bara", "dibiterie"], ["Le Sahel", "restaurant"], ["Kora", "maquis"],
+    ];
+    const KIND = {
+      restaurant: { label: "RESTAURANT", color: "#8a2c1c", roof: 0x9aa3a8, item: "un riz sauce arachide", price: 750, energy: 100 },
+      maquis: { label: "MAQUIS", color: "#1f6b3a", roof: 0xc9a35a, item: "un tô sauce gombo", price: 500, energy: 90 },
+      dibiterie: { label: "DIBITERIE", color: "#a8471c", roof: 0xa83a2a, item: "de la viande grillée", price: 1500, energy: 100 },
+    };
+    for (let tries = 0, ri = 0; tries < 600 && ri < RESTOS.length; tries++) {
+      const rd = pick(roads); if (rd.len < 70) continue;
+      const A = nodes[rd.a], side = rnd() < 0.5 ? -1 : 1, t = rr(24, rd.len - 32), ang = Math.atan2(rd.dx, rd.dz);
+      const across = 16, along = 14, off = rd.w / 2 + 4.6 + across / 2;
+      const nx = rd.nx * side, nz = rd.nz * side, cx = A.x + rd.dx * t + nx * off, cz = A.z + rd.dz * t + nz * off;
+      if (Math.abs(cz) < 120) continue;
+      if (food.some((f) => Math.hypot(f.x - cx, f.z - cz) < 150) || stops.some((st) => Math.hypot(st.sx - cx, st.sz - cz) < 30)) continue;
+      if (!isFree(cx, cz, across, along, ang)) continue;
+      markRect(cx, cz, across, along, ang, 1);
+      const [name, kind] = RESTOS[ri++], K = KIND[kind];
+      const Q = (o, a) => [cx + nx * o + rd.dx * a, cz + nz * o + rd.dz * a];   // o: away from the road, a: along it
+      let p = Q(5, 0); boxFaces(rnd() < 0.5 ? FB.plaster : FB.banco, p[0], 0, p[1], 6, 12, 3.4, ang, C(pick(PAL.tints), 0.08), 4, 3);
+      p = Q(-2.2, 0); iBox(p[0], 2.9, p[1], 9, 0.25, 12.5, C(K.roof, 0.1), ang);
+      for (const [o, a] of [[-6.4, -5.8], [-6.4, 5.8], [1.8, -5.8], [1.8, 5.8]]) { p = Q(o, a); iCyl(p[0], 1.45, p[1], 0.1, 2.9, C(0x6b5440)); }
+      for (const a of [-3.6, 0, 3.6]) {
+        p = Q(-2.4, a); iBox(p[0], 0, p[1], 1.2, 0.75, 1.2, C(pick([0xf4f1ea, 0x2e6fb0, 0xc0392b]), 0.05), ang);
+        for (const [o2, a2] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { const q = Q(-2.4 + o2, a + a2); iBox(q[0], 0, q[1], 0.45, 0.85, 0.45, C(pick([0xc0392b, 0x1f8a4c, 0xf4f1ea, 0x2e6fb0]), 0.05), ang); }
+      }
+      if (kind === "dibiterie") { p = Q(-6, 4.5); iBox(p[0], 0, p[1], 1, 0.95, 2.2, C(0x1b1b1b), ang); iBox(p[0], 0.95, p[1], 0.9, 0.08, 2.1, C(0x7a3a1c), ang); }
+      p = Q(-7.2, -6.6); iCyl(p[0], 1.9, p[1], 0.08, 3.8, C(0x444444));
+      const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.roadSign(name.toUpperCase(), K.label, K.color) })); sg.position.set(p[0], 4.4, p[1]); sg.scale.set(5.2, 2, 1); scene.add(sg);
+      keep.push([p[0], p[1], 3]);
+      p = Q(-6.2, 0);
+      food.push({ x: p[0], z: p[1], name: K.label.charAt(0) + K.label.slice(1).toLowerCase() + " " + name, item: K.item, price: K.price, energy: K.energy, kind });
+      landmarks.push({ name: K.label.charAt(0) + K.label.slice(1).toLowerCase() + " " + name, x: cx, z: cz, kind: "food" });
+    }
+
+    /* ---- traffic lights on the busiest crossroads ---- */
+    const lights = [], lampPos = [];
+    const mains = (n) => n.roads.filter((id) => roads[id].main).length;
+    const cand = nodes.map((n, i) => ({ n, i })).filter(({ n }) => !n.r && n.nb.length >= 4 && Math.abs(n.z) > 120 && mains(n) > 0);
+    cand.sort((a, b) => mains(b.n) - mains(a.n) || a.n.x - b.n.x);
+    for (const { n, i } of cand.slice(0, 14)) {
+      const L = { node: i, x: n.x, z: n.z, heads: [], phase0: rnd() * 27, cop: null }, withCop = rnd() < 0.55;
+      for (const id of n.roads) {
+        const rd = roads[id], other = nodes[rd.a === i ? rd.b : rd.a];
+        const ux = (n.x - other.x) / rd.len, uz = (n.z - other.z) / rd.len, rx = -uz, rz = ux, hw = rd.w / 2;
+        const px = n.x - ux * (n.disc + 1.6) + rx * (hw + 1.1), pz = n.z - uz * (n.disc + 1.6) + rz * (hw + 1.1);
+        iCyl(px, 1.9, pz, 0.08, 3.8, C(0x3a3a3a));
+        iBox(px, 2.9, pz, 0.42, 1.2, 0.34, C(0x1b1b1b), Math.atan2(ux, uz));
+        const head = { axis: Math.abs(ux) > Math.abs(uz) ? "x" : "z", lamps: [] };
+        for (const dy of [0.36, 0, -0.36]) { head.lamps.push(lampPos.length); lampPos.push([px - ux * 0.19, 3.5 + dy, pz - uz * 0.19]); }
+        L.heads.push(head); keep.push([px, pz, 3]);
+        if (!L.cop && withCop) L.cop = [n.x - ux * (n.disc + 0.6) + rx * (hw + 2.4), n.z - uz * (n.disc + 0.6) + rz * (hw + 2.4), Math.atan2(-rx, -rz)];
+      }
+      lights.push(L);
+    }
+    const lampMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.15, 10, 8), new THREE.MeshBasicMaterial({ toneMapped: false }), Math.max(1, lampPos.length));
+    lampPos.forEach((q, k) => { lampMesh.setMatrixAt(k, new THREE.Matrix4().makeTranslation(q[0], q[1], q[2])); lampMesh.setColorAt(k, lin(0x222222)); });
+    lampMesh.frustumCulled = false; scene.add(lampMesh);
+
+    /* ---- police checks in town ---- */
+    const checkpoints = [];
+    const longMain = roads.filter((rd) => rd.main && rd.len > 100);
+    for (let tries = 0; tries < 300 && checkpoints.length < 4; tries++) {
+      const rd = pick(longMain), A = nodes[rd.a], t = rr(40, rd.len - 40);
+      const x = A.x + rd.dx * t, z = A.z + rd.dz * t;
+      if (z > RIVER[0] - 40 && z < RIVER[1] + 40) continue;
+      if (stops.some((st) => Math.hypot(st.zx - x, st.zz - z) < 70) || checkpoints.some((c) => Math.hypot(c.zx - x, c.zz - z) < 350) || lights.some((l) => Math.hypot(l.x - x, l.z - z) < 50)) continue;
+      const side = rnd() < 0.5 ? -1 : 1, nx = rd.nx * side, nz = rd.nz * side, ang = Math.atan2(rd.dx, rd.dz), off = rd.w / 2 + 2.4;
+      const vx = x + nx * off, vz = z + nz * off;
+      iBox(vx, 0.4, vz, 1.9, 1.0, 4.8, C(0x22384f), ang); iBox(vx + rd.dx * 0.9, 1.4, vz + rd.dz * 0.9, 1.8, 0.9, 2.2, C(0x22384f), ang);
+      iBox(vx + rd.dx * 0.9, 2.35, vz + rd.dz * 0.9, 1.2, 0.12, 0.3, C(0x3d7fd8), ang);
+      for (const a of [-9, -6, 6, 9]) iCone(x + rd.dx * a + nx * (rd.w / 2 - 0.5), 0.08, z + rd.dz * a + nz * (rd.w / 2 - 0.5), 0.3, 0.8, C(0xff6a1a));
+      const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.roadSign("POLICE", "CONTRÔLE", "#2b3a5c") })); sg.position.set(vx - rd.dx * 4, 3.2, vz - rd.dz * 4); sg.scale.set(4.2, 1.6, 1); scene.add(sg);
+      keep.push([vx, vz, 6]);
+      checkpoints.push({ kind: "police", zx: x, zz: z, state: "off", wait: 0, people: [[vx - rd.dx * 3.4, vz - rd.dz * 3.4], [x + nx * (rd.w / 2 - 1), z + nz * (rd.w / 2 - 1)]], ang });
+    }
+
+    /* ---- street vendors along the main roads ---- */
+    const STALLS = [
+      ["fruits", "des mangues", 200, 25, [0xf39c12, 0xe67e22, 0x8bc34a]], ["eau", "un sachet d'eau fraîche", 50, 10, [0x8fd3ff, 0xdff3ff]],
+      ["beignets", "des beignets", 200, 30, [0xc68a3c, 0xe0a050]], ["brochettes", "des brochettes", 500, 45, [0x7a3a1c, 0x9a4a22]],
+      ["arachides", "des arachides grillées", 100, 15, [0xb88a4a, 0xa0703a]], ["pain", "du pain", 150, 25, [0xe0b070, 0xd09a58]],
+    ];
+    for (const rd of roads) {
+      if (!rd.main) continue;
+      const A = nodes[rd.a], ang = Math.atan2(rd.dx, rd.dz);
+      for (let t = 30; t < rd.len - 30; t += rr(45, 85)) {
+        if (rnd() < (ECO ? 0.55 : 0.3)) continue;
+        const side = rnd() < 0.5 ? -1 : 1, nx = rd.nx * side, nz = rd.nz * side, off = rd.w / 2 + 2.9;
+        const x = A.x + rd.dx * t + nx * off, z = A.z + rd.dz * t + nz * off;
+        if (z > RIVER[0] - 22 && z < RIVER[1] + 22) continue;
+        if (stops.some((st) => Math.hypot(st.sx - x, st.sz - z) < 14) || stations.some((st) => Math.hypot(st.lx - x, st.lz - z) < 24) || kept(x, z)) continue;
+        const k = pick(STALLS);
+        iBox(x, 0, z, 0.9, 0.82, 1.9, C(0x7a5534, 0.2), ang);
+        for (let j = 0; j < 4; j++) iIco(x + rd.dx * rr(-0.7, 0.7) + nx * rr(-0.2, 0.2), 0.95, z + rd.dz * rr(-0.7, 0.7) + nz * rr(-0.2, 0.2), rr(0.14, 0.22), C(pick(k[4]), 0.15), 0.8);
+        iCyl(x, 1.3, z, 0.04, 2.6, C(0x333333)); iCone(x, 2.3, z, 1.3, 0.6, C(pick([0xe2b31d, 0xc0392b, 0x2e6fb0, 0x1f8a4c, 0xd2541f]), 0.1));
+        keep.push([x, z, 3]);
+        vendors.push({ x: x + rd.dx * 1.4 + nx * 0.3, z: z + rd.dz * 1.4 + nz * 0.3, ang: Math.atan2(-nx, -nz), kind: k[0] });
+        food.push({ x: x - nx * 1.1, z: z - nz * 1.1, name: "Vendeuse", item: k[1], price: k[2], energy: k[3], kind: k[0] });
+      }
+    }
+
     /* ---- houses along every street ---- */
     const centre = (x, z) => Math.hypot(x - 0, (z + 200) * 1.2) < 380;
     for (const rd of roads) {
@@ -529,7 +675,7 @@
         if (rnd() < 0.5) continue;
         const off = rd.w / 2 + 2.6, x = A.x + rd.dx * t + rd.nx * side * off, z = A.z + rd.dz * t + rd.nz * side * off;
         if (z > RIVER[0] - 18 && z < RIVER[1] + 18) continue;
-        if (stops.some((s) => Math.hypot(s.sx - x, s.sz - z) < 10) || inRoad(x, z)) continue;
+        if (stops.some((s) => Math.hypot(s.sx - x, s.sz - z) < 10) || inRoad(x, z) || kept(x, z)) continue;
         tree(x, z, rnd() < 0.8 ? "neem" : "mango");
       }
       if (!rd.main) continue;
@@ -597,6 +743,7 @@
     counts.roof = roofB.idx.length / 3; counts.road = roadB.idx.length / 3; counts.verge = vergeB.idx.length / 3; counts.jun = junB.idx.length / 3;
     return {
       counts, nodes, roads, stops, stations, landmarks, parked, inRoad, nearestRoad, RING, RIVER, water, waterGeo, waterBase, texWater,
+      walkable, food, vendors, lights, lampMesh, checkpoints,
       bounds: { x0: -880, x1: 880, z0: -800, z1: 820 },
       start: { x: -95, z: -190 + 3, h: Math.PI / 2 },
     };

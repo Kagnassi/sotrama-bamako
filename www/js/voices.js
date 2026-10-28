@@ -9,7 +9,9 @@
 
   const CITY_STOPS = ["Grand Marché", "Bamako-Coura", "Bagadadji", "Niaréla", "Bozola", "Médina Coura", "Dar Salam", "Missira", "Hippodrome",
     "Korofina", "Djélibougou", "Quinzambougou", "Hamdallaye", "ACI 2000", "Lafiabougou", "Djicoroni", "Badalabougou", "Torokorobougou",
-    "Daoudabougou", "Sogoniko", "Faladié", "Magnambougou", "Kalaban Coura", "Sénou"];
+    "Daoudabougou", "Sogoniko", "Faladié", "Magnambougou", "Kalaban Coura", "Sénou",
+    "Point G", "Sébénikoro", "Banconi", "Boulkassoumbougou", "Sotuba", "Baco Djicoroni", "Kalaban Coro", "Yirimadio",
+    "Niamakoro", "Missabougou", "Ouolofobougou", "N'Tomikorobougou", "Bolibana"];
 
   // id, who, text ({stop} and {dest} are replaced)
   const LINES = [
@@ -28,6 +30,10 @@
     ["peage", "Péage", "Péage. Deux mille francs, s'il vous plaît."],
     ["depart_car", "Apprenti", "Passagers pour {dest}, on embarque !"],
     ["arrivee_car", "Chauffeur", "Nous sommes arrivés à {dest}. Merci d'avoir voyagé avec Kagnassi Transport !"],
+    ["police_feu", "Policier", "Feu rouge, chauffeur ! Garez-vous. Amende !"],
+    ["faim", "Apprenti", "Patron, on n'a pas encore mangé ! On s'arrête au maquis ?"],
+    ["vendeuse", "Vendeuse", "Jii suma ! Eau fraîche, beignets, mangues !"],
+    ["bon_appetit", "Vendeuse", "I ni ce ! Bon appétit, chauffeur !"],
   ];
   const WHO = Object.fromEntries(LINES.map(([id, who, text]) => [id, { who, text }]));
 

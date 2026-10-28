@@ -20,6 +20,7 @@
     <div id="money">0<small>FCFA</small></div>
     <div class="meta"><span id="clock">06:00</span><span id="dayLabel">Jour 1</span><span><b id="seats">0</b>/<span id="cap">22</span></span></div>
     <div id="fuel"><span>Carburant</span><div class="bar"><i id="fuelBar"></i></div><b id="fuelText">0 L</b></div>
+    <div id="energy"><span>Énergie</span><div class="bar"><i id="energyBar"></i></div><b id="energyText">100 %</b></div>
   </div>
   <div class="hud panel" id="guide" hidden>
     <svg id="arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L34 33 L20 26 L6 33 Z"/></svg>
@@ -28,6 +29,7 @@
   <div class="hud" id="side">
     <canvas id="radar" aria-label="Plan autour du minibus"></canvas>
     <div class="tools">
+      <button class="tool" id="btnFoot" type="button">Descendre</button>
       <button class="tool" id="btnMap" type="button">Plan</button>
       <button class="tool" id="btnCam" type="button">Caméra</button>
       <button class="tool" id="btnPause" type="button">Pause</button>
@@ -37,6 +39,7 @@
   <div class="hud" id="speed">0<small>KM/H</small></div>
   <div class="hud panel" id="toast" role="status" aria-live="polite"></div>
   <div class="hud" id="speech" aria-live="polite"><b></b><span></span></div>
+  <button class="hud panel" id="interact" type="button" hidden></button>
 
   <div id="pad">
     <div class="pad-group">
@@ -87,8 +90,10 @@
           <li><span class="dot blue"></span><span>Sur la route, les <b>cercles bleus</b> sont les contrôles de police et les péages : arrête-toi, sinon c'est l'amende.</span></li>
           <li><span class="dot"></span><span><b>Carrière</b> : apprenti (25 % de la recette), chauffeur (10 000 F de versement par jour), propriétaire, patron, chauffeur de car, transporteur.</span></li>
           <li><span class="dot gold"></span><span>Un <b>apprenti</b> fait monter les passagers plus vite. Après 12 jours, nomme-le chauffeur de l'un de tes véhicules.</span></li>
+          <li><span class="dot red"></span><span>Respecte les <b>feux</b> : un policier au carrefour, c'est 5 000 F d'amende. En ville, les contrôles de police demandent aussi de s'arrêter.</span></li>
+          <li><span class="dot"></span><span>Ton <b>énergie</b> baisse dans la journée. Descends (<kbd>E</kbd>) pour manger dans un restaurant, un maquis, une dibiterie ou chez une vendeuse.</span></li>
         </ul>
-        <p class="keys"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> ou <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire · <kbd>Espace</kbd> frein · <kbd>H</kbd> klaxon · <kbd>M</kbd> plan · <kbd>C</kbd> caméra · <kbd>P</kbd> pause</p>
+        <p class="keys"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> ou <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire · <kbd>Espace</kbd> frein · <kbd>H</kbd> klaxon · <kbd>E</kbd> descendre, monter, manger · <kbd>M</kbd> plan · <kbd>C</kbd> caméra · <kbd>P</kbd> pause</p>
       </details>
       <div class="settings">
         <button class="small ghost" id="qualityBtn" type="button"></button>

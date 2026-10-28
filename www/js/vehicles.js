@@ -9,6 +9,7 @@
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   SB.CLOTH = CLOTH; SB.SKIN = SKIN;
 
+  const basinGeo = new THREE.CylinderGeometry(0.42, 0.28, 0.16, 12);
   const personGeo = { body: new THREE.CylinderGeometry(0.24, 0.38, 1.3, 7), head: new THREE.SphereGeometry(0.2, 7, 5), wrap: new THREE.CylinderGeometry(0.23, 0.21, 0.2, 7) };
   SB.personMesh = function (cloth) {
     const g = new THREE.Group();
@@ -138,13 +139,13 @@
     this.cap = capacity;
     this.free = []; for (let i = capacity - 1; i >= 0; i--) this.free.push(i);
     const mk = (geo) => { const im = new THREE.InstancedMesh(geo, std(), capacity); im.castShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); for (let i = 0; i < capacity; i++) { im.setMatrixAt(i, ZERO); im.setColorAt(i, lin(0xffffff)); } scene.add(im); return im; };
-    this.body = mk(personGeo.body); this.head = mk(personGeo.head); this.wrap = mk(personGeo.wrap);
-    this.hasWrap = new Array(capacity).fill(false);
+    this.body = mk(personGeo.body); this.head = mk(personGeo.head); this.wrap = mk(personGeo.wrap); this.load = mk(basinGeo);
+    this.hasWrap = new Array(capacity).fill(false); this.hasLoad = new Array(capacity).fill(false);
   }
   People.prototype.alloc = function () {
     const i = this.free.pop(); if (i === undefined) return -1;
     this.body.setColorAt(i, lin(pick(CLOTH))); this.head.setColorAt(i, lin(pick(SKIN))); this.wrap.setColorAt(i, lin(pick(CLOTH)));
-    this.hasWrap[i] = Math.random() < 0.5;
+    this.hasWrap[i] = Math.random() < 0.5; this.hasLoad[i] = false;
     this.body.instanceColor.needsUpdate = this.head.instanceColor.needsUpdate = this.wrap.instanceColor.needsUpdate = true;
     return i;
   };
@@ -154,9 +155,15 @@
     _m.compose(_p.set(x, 0.65 + y + 0.08, z), _q, _s); this.body.setMatrixAt(i, _m);
     _m.compose(_p.set(x, 1.5 + y + 0.08, z), _q, _s); this.head.setMatrixAt(i, _m);
     if (this.hasWrap[i]) { _m.compose(_p.set(x, 1.68 + y + 0.08, z), _q, _s); this.wrap.setMatrixAt(i, _m); } else this.wrap.setMatrixAt(i, ZERO);
+    if (this.hasLoad[i]) { _m.compose(_p.set(x, 1.86 + y + 0.08, z), _q, _s); this.load.setMatrixAt(i, _m); } else this.load.setMatrixAt(i, ZERO);
   };
-  People.prototype.release = function (i) { if (i < 0) return; this.body.setMatrixAt(i, ZERO); this.head.setMatrixAt(i, ZERO); this.wrap.setMatrixAt(i, ZERO); this.free.push(i); };
-  People.prototype.commit = function () { this.body.instanceMatrix.needsUpdate = this.head.instanceMatrix.needsUpdate = this.wrap.instanceMatrix.needsUpdate = true; };
+  // a basin carried on the head (walking vendors)
+  People.prototype.setLoad = function (i, color) {
+    this.hasLoad[i] = true; this.hasWrap[i] = true;
+    this.load.setColorAt(i, lin(color)); this.load.instanceColor.needsUpdate = true;
+  };
+  People.prototype.release = function (i) { if (i < 0) return; this.body.setMatrixAt(i, ZERO); this.head.setMatrixAt(i, ZERO); this.wrap.setMatrixAt(i, ZERO); this.load.setMatrixAt(i, ZERO); this.hasLoad[i] = false; this.free.push(i); };
+  People.prototype.commit = function () { this.body.instanceMatrix.needsUpdate = this.head.instanceMatrix.needsUpdate = this.wrap.instanceMatrix.needsUpdate = this.load.instanceMatrix.needsUpdate = true; };
   SB.People = People;
   /* ---------- the coach of Kagnassi Transport ---------- */
   const COACH = { w: 2.55, h: 3.2, l: 12 };

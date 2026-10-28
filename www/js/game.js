@@ -22,7 +22,7 @@
   const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } };
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
   if (!S.quality) S.quality = isTouch ? "eco" : "haute";
-  const HIGH = S.quality === "haute";
+  const HIGH = S.quality !== "eco", ULTRA = S.quality === "ultra";
 
   /* ---------- economy (F CFA) ---------- */
   const DAY = 360, FUEL_PRICE = 800, M_PER_L = 220;
@@ -70,11 +70,12 @@
   let onboard = [], onboardDirty = true;
   let atStop = null, lastStop = null, workT = 0, announced = false, hinted = false, fullShown = false, crashCool = 0, fuelWarned = false, slowT = 0;
   let maliPick = null;
+  let foot = null, footMesh = null, redCool = 0, vendT = 3, hungerWarned = false, tiredShown = false;
 
   async function boot() {
     try { await Promise.race([document.fonts ? document.fonts.ready : Promise.resolve(), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* fonts optional */ }
     renderer = new THREE.WebGLRenderer({ antialias: HIGH, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, HIGH ? 1.6 : 1.1));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, ULTRA ? 3 : HIGH ? 1.6 : 1.1));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -83,11 +84,11 @@
     SB.maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     $("stage").appendChild(renderer.domElement);
     scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(lin(0xe9d8b6), 150, HIGH ? 900 : 650);
+    scene.fog = new THREE.Fog(lin(0xe9d8b6), 150, ULTRA ? 1100 : HIGH ? 900 : 650);
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, HIGH ? 1300 : 950);
     hemi = new THREE.HemisphereLight(lin(0xcfd8e0), lin(0x8a4a2a), 0.8); scene.add(hemi);
     sun = new THREE.DirectionalLight(lin(0xfff3e0), 2.6);
-    sun.castShadow = HIGH; sun.shadow.mapSize.set(2048, 2048);
+    sun.castShadow = HIGH; sun.shadow.mapSize.set(ULTRA ? 4096 : 2048, ULTRA ? 4096 : 2048);
     Object.assign(sun.shadow.camera, { left: -90, right: 90, top: 90, bottom: -90, near: 10, far: 400 });
     sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.02;
     scene.add(sun, sun.target);
@@ -98,6 +99,7 @@
     sky.renderOrder = -1; scene.add(sky);
     sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: SB.tex.glow("rgba(255,244,220,1)", "rgba(255,200,120,0)"), blending: THREE.AdditiveBlending, fog: false, depthWrite: false, transparent: true }));
     sunSprite.scale.set(230, 230, 1); scene.add(sunSprite);
+    footMesh = SB.personMesh(0xf3efe6); footMesh.visible = false; scene.add(footMesh);
     if (HIGH) {
       const n = 700, pos = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) { pos[i * 3] = rand(-90, 90); pos[i * 3 + 1] = rand(0.5, 25); pos[i * 3 + 2] = rand(-90, 90); }
@@ -111,7 +113,7 @@
     SB.ads.init(S);
     document.addEventListener("deviceready", () => SB.purchases.init(), false);
     if (S.city === "bamako") await loadCity(); else await loadRoute(SB.mali.routesFrom(S.city)[0]);
-    if (window.location.search.includes("debug")) SB.debug = { bus, get world() { return world; }, onboard: () => onboard, stats: () => renderer.info.render, S, startTrip, startCityDay };
+    if (window.location.search.includes("debug")) SB.debug = { bus, get world() { return world; }, get foot() { return foot; }, get day() { return day; }, onboard: () => onboard, stats: () => renderer.info.render, S, startTrip, startCityDay, toggleFoot, doAction, lightState, snap: () => { camInit = false; } };
     showGarage();
     requestAnimationFrame(frame);
   }
@@ -141,14 +143,15 @@
       resetWorldState();
       world = SB.buildWorld(worldGroup, { quality: S.quality });
       world.kind = "city";
-      people = new SB.People(worldGroup, HIGH ? 320 : 260);
+      people = new SB.People(worldGroup, HIGH ? 540 : 440);
       motos = SB.motoFleet(worldGroup, HIGH ? 46 : 32);
       taxis = SB.taxiFleet(worldGroup, HIGH ? 14 : 10);
       aiBuses = { vert: SB.busFleet(worldGroup, "vert", 5), bleu: SB.busFleet(worldGroup, "bleu", 2) };
       const parked = {};
       for (const p of world.parked) (parked[p.livery] = parked[p.livery] || []).push(p);
       for (const [liv, list] of Object.entries(parked)) { const f = SB.busFleet(worldGroup, liv, list.length, true); list.forEach((p, i) => f.set(i, p.x, 0.06, p.z, p.ang)); f.commit(); }
-      spawnTraffic(); spawnPedestrians();
+      world.lightByNode = new Map(world.lights.map((L) => [L.node, L]));
+      spawnTraffic(); spawnPedestrians(); placeStaticPeople();
       for (const s of world.stops) { const n = Math.floor(rand(1, 4)); for (let k = 0; k < n; k++) addWaiting(s); }
       loaded = "city";
     });
@@ -159,13 +162,13 @@
     await withLoading("Route de " + SB.mali.CITIES[trip.to].name + "…", () => {
       resetWorldState();
       world = SB.buildRoute(worldGroup, trip, { quality: S.quality });
-      people = new SB.People(worldGroup, 220);
+      people = new SB.People(worldGroup, 270);
       motos = SB.motoFleet(worldGroup, HIGH ? 12 : 8);
       taxis = SB.taxiFleet(worldGroup, 4);
       trucks = SB.truckFleet(worldGroup, HIGH ? 10 : 7);
       coaches = SB.coachFleet(worldGroup, HIGH ? 3 : 2);
       const pc = SB.coachFleet(worldGroup, world.parked.length); world.parked.forEach((p, i) => pc.set(i, p.x, 0.06, p.z, p.ang)); pc.commit();
-      spawnTraffic();
+      spawnTraffic(); placeStaticPeople();
       // police and toll agents
       for (const cp of world.checkpoints) for (const [x, z] of cp.people) { const id = people.alloc(); if (id < 0) continue; people.dress(id, cp.kind === "police" ? 0x34465e : 0xe2b31d, 0x1f2a36); people.set(id, x, z, Math.atan2(-world.at(cp.s, 1)[0] + world.at(cp.s, 0)[0], -world.at(cp.s, 1)[1] + world.at(cp.s, 0)[1])); }
       people.commit();
@@ -250,6 +253,17 @@
         let blocked = false;
         const rx = bus.x - ag.x, rz = bus.z - ag.z, al = rx * ag.hx + rz * ag.hz;
         if (veh && al > 0 && al < 7 + veh.hl + ag.len / 2 && Math.abs(rx * ag.hz - rz * ag.hx) < 2.8) blocked = true;
+        if (!blocked && foot) { const px = foot.x - ag.x, pz = foot.z - ag.z, a3 = px * ag.hx + pz * ag.hz; if (a3 > 0 && a3 < 6 + ag.len / 2 && Math.abs(px * ag.hz - pz * ag.hx) < 2) blocked = true; }
+        if (!blocked && world.lightByNode) {
+          const L = world.lightByNode.get(ag.b);
+          if (L) {
+            const N = world.nodes[ag.b], dx = N.x - ag.x, dz = N.z - ag.z, d = Math.hypot(dx, dz), stopAt = N.disc + 2 + ag.len / 2;
+            if (d > stopAt - 1.5 && d < stopAt + 12 && dx * ag.hx + dz * ag.hz > 0) {
+              const st = lightState(L, Math.abs(ag.hx) > Math.abs(ag.hz) ? "x" : "z");
+              if (st === "red" || (st === "amber" && d > stopAt + 4)) blocked = true;
+            }
+          }
+        }
         if (!blocked) for (const o of agents) {
           if (o === ag || o.crash > 0) continue;
           const ox = o.x - ag.x, oz = o.z - ag.z; if (Math.abs(ox) > 16 || Math.abs(oz) > 16) continue;
@@ -274,11 +288,19 @@
   }
 
   /* ---------- people ---------- */
+  const BRIGHT = [0xe2b31d, 0xb83280, 0xd2541f, 0x1f8a4c, 0x3d8fd1, 0x6a2d7a, 0xc0392b, 0x0f6b6b];
+  const pickC = (a) => a[Math.floor(Math.random() * a.length)];
+  function placeStaticPeople() {
+    for (const v of world.vendors || []) { const id = people.alloc(); if (id < 0) break; people.dress(id, pickC(BRIGHT), pickC(BRIGHT)); people.set(id, v.x, v.z, v.ang); }
+    for (const L of world.lights || []) if (L.cop) { const id = people.alloc(); if (id < 0) break; people.dress(id, 0xf4f4f0, 0x1f2a5a); people.set(id, L.cop[0], L.cop[1], L.cop[2]); }
+    people.commit();
+  }
   function spawnPedestrians() {
     for (let k = 0; k < (HIGH ? 70 : 40); k++) {
       const rd = world.roads[Math.floor(Math.random() * world.roads.length)];
       if (Math.abs(world.nodes[rd.a].z) < 80 && Math.abs(world.nodes[rd.b].z) < 80) continue;
       const id = people.alloc(); if (id < 0) break;
+      if (Math.random() < 0.25) people.setLoad(id, pickC([0xe67e22, 0x2e6fb0, 0xc0392b, 0xe2b31d, 0xf4f1ea])); // basin on the head: walking vendors
       pedestrians.push({ id, rd, t: rand(10, rd.len - 10), side: Math.random() < 0.5 ? -1 : 1, dir: Math.random() < 0.5 ? -1 : 1, v: rand(0.9, 1.5), ph: rand(0, 6) });
     }
   }
@@ -321,11 +343,17 @@
     await loadCity();
     setupVehicle("sotrama");
     const asApprenti = !veh.own && !S.permis;
-    day = { kind: "city", fares: 0, fuel: 0, fines: 0, toll: 0, served: 0, accidents: 0, doubled: false, apprenti: asApprenti, own: !!veh.own };
+    day = { kind: "city", fares: 0, fuel: 0, fines: 0, toll: 0, food: 0, energy: 100, served: 0, accidents: 0, doubled: false, apprenti: asApprenti, own: !!veh.own };
     elapsed = 0; onboard = []; onboardDirty = true; fuelWarned = false; slowT = 0;
     resetBus(); bus.fuel = veh.own ? Math.min(20 + veh.tank * 0.2, veh.tank) : 30;
     clearStops();
     for (const s of world.stops) { s.spawnT = rand(1, 8); const n = Math.floor(rand(1, 4)); for (let k = 0; k < n; k++) addWaiting(s); }
+    for (const cp of world.checkpoints) {
+      for (const id of cp.ids || []) people.release(id);
+      Object.assign(cp, { ids: [], wait: 0, inside: false, greeted: false, state: Math.random() < 0.65 ? "pending" : "off" });
+      if (cp.state === "pending") for (const [x, z] of cp.people) { const id = people.alloc(); if (id < 0) continue; people.dress(id, 0x34465e, 0x1f2a36); people.set(id, x, z, cp.ang + Math.PI / 2); cp.ids.push(id); }
+    }
+    people.commit(); resetFoot();
     mode = "play";
     toast(asApprenti ? "Jour " + S.day + " · Apprenti : le patron te laisse conduire sa Sotrama" : "Jour " + S.day + " · 6 h : départ de Grand Marché");
   }
@@ -347,8 +375,8 @@
     await loadRoute(trip);
     setupVehicle("coach", trip);
     const own = veh.own;
-    day = { kind: "trip", trip, fares: 0, fuel: 0, fines: 0, toll: 0, served: 0, accidents: 0, doubled: false, own: !!own, rent: own ? 0 : carRent(trip.km), maint: own ? carMaint(trip.km) : 0 };
-    elapsed = 0; onboard = []; onboardDirty = true; fuelWarned = false; slowT = 0;
+    day = { kind: "trip", trip, fares: 0, fuel: 0, fines: 0, toll: 0, food: 0, energy: 100, served: 0, accidents: 0, doubled: false, own: !!own, rent: own ? 0 : carRent(trip.km), maint: own ? carMaint(trip.km) : 0 };
+    elapsed = 0; onboard = []; onboardDirty = true; fuelWarned = false; slowT = 0; resetFoot();
     resetBus();
     const need = trip.km * 0.3;
     bus.fuel = Math.min(veh.tank, need * 0.7 + 10); day.fuel = bus.fuel * FUEL_PRICE;
@@ -386,6 +414,7 @@
       if (day.fines) add("Amendes et accidents", -day.fines);
       if (day.own) add("Entretien de ton car", -day.maint); else add("Location du car", -day.rent);
     }
+    if (day.food) add("Repas et achats", -day.food);
     // vehicles driven by your employees
     const drivenByMe = veh && veh.own ? veh.own.id : null;
     let fleetIncome = 0; const events = [];
@@ -401,7 +430,7 @@
     return { lines, net };
   }
   function endDay(title) {
-    mode = "end"; keys.up = keys.down = false;
+    mode = "end"; keys.up = keys.down = false; resetFoot();
     pending = settle();
     $("endDay").textContent = title || "Jour " + S.day + " terminé";
     $("endKicker").textContent = day.kind === "trip" ? "Fin du voyage" : "20 h";
@@ -434,7 +463,7 @@
     return true;
   }
   function updateBus(dt) {
-    const MAXV = veh.maxv, dry = bus.fuel <= 0;
+    const MAXV = veh.maxv * (day.energy <= 0 ? 0.8 : 1), dry = bus.fuel <= 0;
     if (keys.up && !dry) bus.v += (bus.v >= 0 ? veh.acc : 14) * dt;
     if (keys.down) bus.v -= (bus.v > 0.4 ? 14 : dry ? 0 : 4) * dt;
     if (!keys.up && !keys.down || dry) bus.v -= Math.sign(bus.v) * Math.min(Math.abs(bus.v), 2.6 * dt);
@@ -456,6 +485,11 @@
     if (bus.fuel < veh.tank * 0.12 && !fuelWarned) { fuelWarned = true; toast("Réservoir presque vide : passe à une station", "bad"); SB.voice.say("essence"); }
     if (bus.fuel <= 0 && Math.abs(bus.v) < 0.3 && mode === "play") breakdown();
     if (engGain) { engOsc.frequency.value = (veh.type === "coach" ? 30 : 38) + Math.abs(bus.v) * 4.5; engGain.gain.value = dry ? 0 : 0.035 + Math.abs(bus.v) * 0.003; }
+    vendT -= dt;
+    if (vendT <= 0 && world.vendors && Math.abs(bus.v) < 5) {
+      vendT = 4;
+      if (Math.random() < 0.35 && world.vendors.some((v) => Math.abs(v.x - bus.x) < 12 && Math.abs(v.z - bus.z) < 12)) SB.voice.say("vendeuse");
+    }
     // impatient passengers
     if (onboard.length && Math.abs(bus.v) < 1 && !atStop) { slowT += dt; if (slowT > 25) { slowT = 0; SB.voice.say("vite"); } } else slowT = 0;
 
@@ -481,7 +515,7 @@
 
   /* ---------- stops, checkpoints and fuel stations ---------- */
   let fuelT = 0;
-  const cash = () => day.fares - (day.apprenti ? 0 : day.fuel) - day.fines - day.toll;
+  const cash = () => day.fares - (day.apprenti ? 0 : day.fuel) - day.fines - day.toll - day.food;
   function refuel(dt) {
     for (const st of world.stations) {
       if (Math.hypot(bus.x - st.zx, bus.z - st.zz) > (veh.type === "coach" ? 12 : 8)) continue;
@@ -498,7 +532,8 @@
     refuel(dt);
     const city = world.kind === "city";
     if (city) for (const s of world.stops) { s.spawnT -= dt; if (s.spawnT <= 0) { s.spawnT = rand(7, 18) / (helpers() ? 1.3 : 1); if (s.waiting.length < 8) addWaiting(s); } }
-    if (!city) updateCheckpoints(dt);
+    if (!city) updateCheckpoints(dt); else updateCityPolice(dt);
+    if (foot) { atStop = null; return; }
     let near = null, nd = 1e9;
     for (const s of world.stops) { const d = Math.hypot(bus.x - s.zx, bus.z - s.zz); if (d < nd) { nd = d; near = s; } }
     atStop = nd < (city ? 8 : 14) ? near : null;
@@ -564,6 +599,130 @@
     mode = "arrive";
   }
 
+  /* ---------- traffic lights ---------- */
+  const PHASES = [["x", "green", 10], ["x", "amber", 2.5], [null, "red", 1.2], ["z", "green", 10], ["z", "amber", 2.5], [null, "red", 1.2]];
+  const CYCLE = PHASES.reduce((a, q) => a + q[2], 0);
+  const LAMP = { red: [0xff2a1a, 0x3a0f0c], amber: [0xffb21a, 0x3a2a0c], green: [0x2aff7a, 0x0c3a1e] };
+  const lampC = new THREE.Color();
+  function lightState(L, axis) {
+    let t = (time + L.phase0) % CYCLE;
+    for (const [ax, col, d] of PHASES) { if (t < d) return ax === axis ? col : "red"; t -= d; }
+    return "red";
+  }
+  function updateLights() {
+    if (!world.lights || !world.lights.length) return;
+    let dirty = false;
+    for (const L of world.lights) for (const h of L.heads) {
+      const st = lightState(L, h.axis);
+      if (h.state === st) continue;
+      h.state = st; dirty = true;
+      ["red", "amber", "green"].forEach((c, k) => world.lampMesh.setColorAt(h.lamps[k], lampC.setHex(LAMP[c][c === st ? 0 : 1]).convertSRGBToLinear()));
+    }
+    if (dirty) world.lampMesh.instanceColor.needsUpdate = true;
+  }
+  function checkRedLight(dt) {
+    redCool -= dt;
+    if (!world.lights || Math.abs(bus.v) < 3 || redCool > 0) return;
+    const fx = Math.sin(bus.h), fz = Math.cos(bus.h);
+    for (const L of world.lights) {
+      const N = world.nodes[L.node], dx = N.x - bus.x, dz = N.z - bus.z, d = Math.hypot(dx, dz);
+      if (d > N.disc + 2.5 || d < N.disc - 2 || dx * fx + dz * fz <= 0) continue;
+      if (lightState(L, Math.abs(fx) > Math.abs(fz) ? "x" : "z") !== "red") continue;
+      redCool = 5;
+      if (L.cop) { day.fines += 5000; popCash("−5 000 F", true); SB.voice.say("police_feu", null, true); toast("Feu rouge grillé devant le policier : −5 000 F", "bad"); }
+      else { toast("Feu rouge grillé !", "bad"); if (onboard.length) SB.voice.say("doucement"); }
+    }
+  }
+  /* ---------- police checks in town ---------- */
+  function updateCityPolice(dt) {
+    for (const cp of world.checkpoints) {
+      if (cp.state === "off") continue;
+      if (cp.state !== "pending") { cp.cool -= dt; if (cp.cool <= 0) Object.assign(cp, { state: "pending", wait: 0, greeted: false, inside: false }); continue; }
+      const d = Math.hypot(bus.x - cp.zx, bus.z - cp.zz);
+      if (d < 14 && !foot) {
+        cp.inside = true;
+        if (!cp.greeted) { cp.greeted = true; SB.voice.say("police_papiers", null, true); }
+        if (Math.abs(bus.v) < 1) { cp.wait += dt; if (cp.wait > 1.4) { cp.state = "ok"; cp.cool = 150; SB.voice.say("police_ok", null, true); toast("Contrôle de police : papiers en règle"); } }
+      } else if (cp.inside && d > 20) {
+        Object.assign(cp, { inside: false, state: "fined", cool: 60 });
+        day.fines += 5000; popCash("−5 000 F", true); SB.voice.say("police_amende", null, true); toast("Tu n'as pas marqué l'arrêt au contrôle : −5 000 F", "bad");
+      }
+    }
+  }
+  /* ---------- hunger ---------- */
+  function updateEnergy(dt) {
+    day.energy = Math.max(0, day.energy - (dt * 100) / 216);
+    if (!hungerWarned && day.energy < 25) { hungerWarned = true; SB.voice.say("faim", null, true); toast("Tu as faim : arrête-toi manger (restaurant, maquis, vendeuse)", "bad"); }
+    if (!tiredShown && day.energy <= 0) { tiredShown = true; toast("Tu es épuisé : tu conduis moins vite tant que tu n'as pas mangé", "bad"); }
+  }
+  /* ---------- the driver on foot ---------- */
+  function resetFoot() { foot = null; if (footMesh) footMesh.visible = false; camInit = false; }
+  function doorPos(side) { // 1 = driver's door (left), -1 = right
+    const fx = Math.sin(bus.h), fz = Math.cos(bus.h);
+    return { x: bus.x + fx * veh.hl * 0.45 + fz * side * (veh.hw + 1), z: bus.z + fz * veh.hl * 0.45 - fx * side * (veh.hw + 1) };
+  }
+  const doorDist = () => Math.min(...[1, -1].map((sd) => { const p = doorPos(sd); return Math.hypot(foot.x - p.x, foot.z - p.z); }));
+  function insideVehicle(x, z) {
+    const fx = Math.sin(bus.h), fz = Math.cos(bus.h), rx = x - bus.x, rz = z - bus.z;
+    return Math.abs(rx * fx + rz * fz) < veh.hl + 0.3 && Math.abs(rx * fz - rz * fx) < veh.hw + 0.3;
+  }
+  function toggleFoot() {
+    if (mode !== "play" || !veh) return;
+    if (!foot) {
+      if (Math.abs(bus.v) > 0.8) { toast("Arrête-toi avant de descendre"); return; }
+      bus.v = 0; for (const k in keys) keys[k] = false;
+      let p = doorPos(1);
+      if (world.walkable && !world.walkable(p.x, p.z)) p = doorPos(-1);
+      foot = { x: p.x, z: p.z, h: bus.h, v: 0, ph: 0 };
+      footMesh.visible = true; camInit = false;
+      toast("Tu es à pied. Reviens à la portière pour remonter (touche E ou « Monter »).");
+    } else {
+      if (doorDist() > 3.2) { toast("Approche-toi de la portière"); return; }
+      for (const k in keys) keys[k] = false;
+      resetFoot();
+    }
+  }
+  const EAT = ["restaurant", "maquis", "dibiterie", "station"];
+  function nearFood() {
+    let best = null, bd = 3.4;
+    for (const f of world.food || []) { const d = Math.hypot(f.x - foot.x, f.z - foot.z); if (d < bd) { bd = d; best = f; } }
+    return best;
+  }
+  function footAction() {
+    if (!foot) return null;
+    if (doorDist() < 3.2) return { kind: "in", label: veh.type === "coach" ? "Monter dans ton car" : "Monter dans ta Sotrama" };
+    const f = nearFood();
+    if (f) return { kind: "food", f, label: (EAT.includes(f.kind) ? "Manger " : "Acheter ") + f.item + " · " + fmt(f.price) + " F" };
+    return null;
+  }
+  function buyFood(f) {
+    if (cash() + S.savings < f.price) { toast("Pas assez d'argent", "bad"); return; }
+    day.food += f.price; day.energy = Math.min(100, day.energy + f.energy);
+    if (day.energy > 40) { hungerWarned = false; tiredShown = false; }
+    popCash("−" + fmt(f.price) + " F", true); ding(); SB.voice.say("bon_appetit", null, true);
+    toast((EAT.includes(f.kind) ? "Tu manges " : "Tu achètes ") + f.item + " · énergie " + Math.round(day.energy) + " %");
+  }
+  function doAction() {
+    if (mode !== "play") return;
+    if (!foot) { toggleFoot(); return; }
+    const a = footAction();
+    if (!a) { toast("Approche-toi de la portière, d'un restaurant ou d'une vendeuse"); return; }
+    if (a.kind === "in") toggleFoot(); else buyFood(a.f);
+  }
+  function updateWalker(dt) {
+    const turn = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
+    foot.h += turn * 2.6 * dt;
+    const target = keys.up ? 3.4 : keys.down ? -1.6 : 0;
+    foot.v += (target - foot.v) * Math.min(1, dt * 8);
+    const nx = foot.x + Math.sin(foot.h) * foot.v * dt, nz = foot.z + Math.cos(foot.h) * foot.v * dt;
+    const ok = (x, z) => (!world.walkable || world.walkable(x, z)) && !insideVehicle(x, z);
+    if (ok(nx, nz)) { foot.x = nx; foot.z = nz; } else if (ok(nx, foot.z)) foot.x = nx; else if (ok(foot.x, nz)) foot.z = nz; else foot.v = 0;
+    foot.ph += Math.abs(foot.v) * dt * 3.2;
+    footMesh.position.set(foot.x, 0.08 + Math.abs(Math.sin(foot.ph)) * 0.06, foot.z); footMesh.rotation.y = foot.h;
+    if (onboard.length) { slowT += dt; if (slowT > 20) { slowT = 0; SB.voice.say("vite"); } }
+    if (engGain) engGain.gain.value = 0.02;
+  }
+
   /* ---------- markers ---------- */
   let markers = null;
   function buildMarkers() {
@@ -603,7 +762,8 @@
     for (let v = 0; v < pos.count; v++) { const m = Math.pow(Math.max(0, pos.getY(v) / R), 0.45); tmp.copy(hor).lerp(zen, m); col.setXYZ(v, tmp.r, tmp.g, tmp.b); }
     col.needsUpdate = true;
     const a = Math.PI * (0.06 + 0.88 * t), dir = new THREE.Vector3(Math.cos(a), Math.sin(a) * 0.9 + 0.08, 0.4).normalize();
-    sun.position.set(bus.x + dir.x * 200, dir.y * 200, bus.z + dir.z * 200); sun.target.position.set(bus.x, 0, bus.z);
+    const F = foot || bus;
+    sun.position.set(F.x + dir.x * 200, dir.y * 200, F.z + dir.z * 200); sun.target.position.set(F.x, 0, F.z);
     sky.position.copy(camera.position);
     const sd = R * 0.9; sunSprite.position.set(camera.position.x + dir.x * sd, camera.position.y + dir.y * sd, camera.position.z + dir.z * sd);
     sunSprite.material.color.copy(sun.color);
@@ -621,7 +781,11 @@
   function updateCamera(dt) {
     const fx = Math.sin(bus.h), fz = Math.cos(bus.h), big = veh && veh.type === "coach" ? 1.6 : 1;
     let p, l, snap = false;
-    if (mode === "garage" || mode === "loading" || mode === "mali") {
+    if (foot && day) {
+      const hx = Math.sin(foot.h), hz = Math.cos(foot.h);
+      if (camMode === 3) { p = [foot.x + hx * 0.25, 1.65, foot.z + hz * 0.25]; l = [foot.x + hx * 10, 1.5, foot.z + hz * 10]; snap = true; }
+      else { p = [foot.x - hx * 5, 2.9, foot.z - hz * 5]; l = [foot.x + hx * 3, 1.3, foot.z + hz * 3]; }
+    } else if (mode === "garage" || mode === "loading" || mode === "mali") {
       // slow swing behind the vehicle, staying above the road
       orbit += dt * 0.25; const a = bus.h + Math.PI + 0.6 * Math.sin(orbit), R = 13 * big;
       p = [bus.x + Math.sin(a) * R, 5 * big, bus.z + Math.cos(a) * R]; l = [bus.x + fx * 2, 1.8 * big, bus.z + fz * 2];
@@ -636,7 +800,8 @@
     const kl = snap ? 1 : Math.min(1, k * 1.6);
     camLook.x += (l[0] - camLook.x) * kl; camLook.y += (l[1] - camLook.y) * kl; camLook.z += (l[2] - camLook.z) * kl;
     camera.position.copy(camPos); camera.lookAt(camLook);
-    if (busMesh) busMesh.visible = camMode !== 3 || mode !== "play";
+    if (busMesh) busMesh.visible = !(camMode === 3 && mode === "play" && !foot);
+    if (footMesh) footMesh.visible = !!foot && camMode !== 3;
     const want = mode === "garage" && window.innerWidth > 760 ? Math.round(Math.min(260, window.innerWidth * 0.2)) : 0;
     if (want !== viewShift) { viewShift = want; if (want) camera.setViewOffset(window.innerWidth, window.innerHeight, -want, 0, window.innerWidth, window.innerHeight); else camera.clearViewOffset(); }
   }
@@ -652,14 +817,14 @@
   }
   const clampX = (v, max) => Math.max(6, Math.min(max - 6, v));
   function arrowAt(g, cx, cy, r, u) {
-    const fx = Math.sin(bus.h), fz = Math.cos(bus.h);
+    const F = foot || bus, fx = Math.sin(F.h), fz = Math.cos(F.h);
     g.fillStyle = "#1f8a4c"; g.strokeStyle = "#f7ecd8"; g.lineWidth = 1.5 * u;
     g.beginPath(); g.moveTo(cx + fx * r, cy + fz * r); g.lineTo(cx - fx * r * 0.6 + fz * r * 0.6, cy - fz * r * 0.6 - fx * r * 0.6); g.lineTo(cx - fx * r * 0.6 - fz * r * 0.6, cy - fz * r * 0.6 + fx * r * 0.6); g.closePath(); g.fill(); g.stroke();
   }
   function drawRadar() {
     const W = radar.width, H = radar.height, R = world.kind === "route" ? 400 : 260, s = W / (2 * R), g = rctx;
     g.fillStyle = world.kind === "route" ? "#5b4a2c" : "#3a2618"; g.fillRect(0, 0, W, H);
-    const tx = (x) => W / 2 + (x - bus.x) * s, ty = (z) => H / 2 + (z - bus.z) * s;
+    const F = foot || bus, tx = (x) => W / 2 + (x - F.x) * s, ty = (z) => H / 2 + (z - F.z) * s;
     drawRoads(g, tx, ty, s, 1);
     const dests = new Set(onboard.map((p) => p.dest)), u = W / 170;
     for (const st of world.stations) { g.fillStyle = "#e25a3c"; g.beginPath(); g.arc(clampX(tx(st.zx), W), clampX(ty(st.zz), H), 4 * u, 0, 7); g.fill(); }
@@ -669,6 +834,7 @@
       if (dests.has(i)) { g.fillStyle = "#f2b233"; g.beginPath(); g.arc(clampX(x, W), clampX(y, H), (out ? 4 : 6) * u, 0, 7); g.fill(); }
       else if (st.waiting.length && !out) { g.fillStyle = "#f7ecd8"; g.beginPath(); g.arc(x, y, (2.5 + Math.min(8, st.waiting.length) * 0.4) * u, 0, 7); g.fill(); }
     });
+    if (foot) { g.fillStyle = "#f7ecd8"; g.fillRect(tx(bus.x) - 4 * u, ty(bus.z) - 4 * u, 8 * u, 8 * u); }
     arrowAt(g, W / 2, H / 2, 8 * u, u);
   }
   function drawBigMap() {
@@ -687,7 +853,12 @@
     for (const st of world.stations) { g.fillStyle = "#e25a3c"; g.beginPath(); g.arc(tx(st.zx), ty(st.zz), 4.5 * u, 0, 7); g.fill(); g.fillText("Station", tx(st.zx) + 8 * u, ty(st.zz)); }
     for (const c of world.checkpoints || []) { g.fillStyle = "#5aa0ff"; g.beginPath(); g.arc(tx(c.zx), ty(c.zz), 4.5 * u, 0, 7); g.fill(); g.fillText(c.kind === "police" ? "Contrôle de police" : "Péage", tx(c.zx) + 8 * u, ty(c.zz)); }
     if (world.kind === "city") { g.fillStyle = "rgba(247,236,216,0.6)"; g.font = `700 ${Math.round(13 * u)}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.fillText("FLEUVE NIGER", tx(-650), ty(0)); g.fillText("RIVE GAUCHE", tx(-650), ty(-300)); g.fillText("RIVE DROITE", tx(-650), ty(260)); }
-    arrowAt(g, tx(bus.x), ty(bus.z), 10 * u, u);
+    for (const lm of world.landmarks || []) {
+      if (lm.kind === "hospital") { const x = tx(lm.x), y = ty(lm.z); g.fillStyle = "#f7ecd8"; g.fillRect(x - 7 * u, y - 7 * u, 14 * u, 14 * u); g.fillStyle = "#c0392b"; g.fillRect(x - 1.8 * u, y - 5.5 * u, 3.6 * u, 11 * u); g.fillRect(x - 5.5 * u, y - 1.8 * u, 11 * u, 3.6 * u); g.fillStyle = "#f7ecd8"; g.fillText("Hôpital " + lm.name, x + 10 * u, y); }
+      else if (lm.kind === "food") { g.fillStyle = "#e67e22"; g.beginPath(); g.arc(tx(lm.x), ty(lm.z), 3 * u, 0, 7); g.fill(); }
+    }
+    if (foot) { g.fillStyle = "#f7ecd8"; g.fillRect(tx(bus.x) - 4 * u, ty(bus.z) - 4 * u, 8 * u, 8 * u); }
+    const F = foot || bus; arrowAt(g, tx(F.x), ty(F.z), 10 * u, u);
   }
   function toggleMap(force) {
     const open = force !== undefined ? force : $("mapBox").hidden;
@@ -706,6 +877,7 @@
     box.innerHTML = `<h2>À bord · ${onboard.length}</h2><ul>${Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([d, n]) => `<li><span>${esc(world.stops[d].name.replace("Gare routière de ", ""))}</span><b>${n}</b></li>`).join("")}</ul>`;
   }
   function guideTarget() {
+    if (foot) return [{ zx: bus.x, zz: bus.z, name: veh.type === "coach" ? "Ton car" : "Ta Sotrama" }, "Tu es à pied · retour à"];
     if (bus.fuel < veh.tank * 0.12 && world.stations.length) {
       let bd = 1e9, t = null; for (const st of world.stations) { const d = Math.hypot(st.zx - bus.x, st.zz - bus.z); if (d < bd) { bd = d; t = { zx: st.zx, zz: st.zz, name: "Station" }; } }
       return [t, "Carburant :"];
@@ -736,7 +908,12 @@
     else mins = 360 + Math.min(1, elapsed / DAY) * 840;
     setText("clock", String(Math.floor(mins / 60) % 24).padStart(2, "0") + ":" + String(Math.floor(mins % 60)).padStart(2, "0"));
     setText("seats", String(onboard.length)); setText("dayLabel", "Jour " + S.day);
-    $("speed").firstChild.nodeValue = String(Math.round(Math.abs(bus.v) * 3.6));
+    const F = foot || bus;
+    $("speed").firstChild.nodeValue = String(Math.round(Math.abs(F.v) * 3.6));
+    $("energyBar").style.width = day.energy.toFixed(1) + "%"; $("energy").classList.toggle("low", day.energy < 25); setText("energyText", Math.round(day.energy) + " %");
+    const act = foot ? footAction() : null, lbl = act ? act.label : "";
+    if (cache.interact !== lbl) { cache.interact = lbl; $("interact").hidden = !act; $("interact").textContent = lbl; }
+    setText("btnFoot", foot ? "Monter" : "Descendre");
     const f = bus.fuel / veh.tank;
     $("fuelBar").style.width = (f * 100).toFixed(1) + "%"; $("fuel").classList.toggle("low", f < 0.12); setText("fuelText", Math.round(bus.fuel) + " L");
     if (onboardDirty) { onboardDirty = false; renderOnboard(); }
@@ -744,9 +921,9 @@
     $("guide").hidden = !target;
     if (target) {
       setText("guideLabel", label); setText("guideName", target.name.replace("Gare routière de ", "Gare de "));
-      const dx = target.zx - bus.x, dz = target.zz - bus.z, dist = Math.hypot(dx, dz);
+      const dx = target.zx - F.x, dz = target.zz - F.z, dist = Math.hypot(dx, dz);
       setText("guideDist", dist < 10 ? "Tu y es" : dist >= 1000 ? (dist / 1000).toFixed(1).replace(".", ",") + " km" : Math.round(dist / 10) * 10 + " m");
-      const fx = Math.sin(bus.h), fz = Math.cos(bus.h);
+      const fx = Math.sin(F.h), fz = Math.cos(F.h);
       $("arrow").style.transform = "rotate(" + Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz).toFixed(3) + "rad)";
       $("arrow").classList.toggle("pick", label.indexOf("attendent") >= 0);
     }
@@ -759,7 +936,7 @@
 
   /* ---------- hub: career, fleet, team, garage ---------- */
   async function showGarage() {
-    mode = "garage"; day = null; onboard = []; onboardDirty = true;
+    mode = "garage"; day = null; onboard = []; onboardDirty = true; resetFoot();
     if (S.city === "bamako") await loadCity();
     else if (!world.trip || world.trip.from !== S.city) await loadRoute(SB.mali.routesFrom(S.city)[0]);
     if (world.kind === "city") setupVehicle("sotrama"); else setupVehicle("coach", world.trip);
@@ -802,7 +979,7 @@
     }).join("");
     const up = (key, list, name, unit) => { const lvl = S[key], next = list[lvl + 1]; return `<div class="up"><div><b>${name}</b><span>${list[lvl].v} ${unit}${next ? " → " + next.v + " " + unit : " · max"}</span></div>${next ? `<button type="button" class="small" data-up="${key}" ${S.savings < next.price ? "disabled" : ""}>${fmt(next.price)} F</button>` : ""}</div>`; };
     $("upgrades").innerHTML = up("engine", ENGINE.map((e) => ({ v: Math.round(e.v * 3.6), price: e.price })), "Moteur", "km/h") + up("tank", TANK, "Réservoir", "L");
-    $("qualityBtn").textContent = "Graphismes : " + (S.quality === "haute" ? "haute qualité" : "économie");
+    $("qualityBtn").textContent = "Graphismes : " + ({ eco: "économie", haute: "haute qualité", ultra: "ultra (4K)" }[S.quality] || "haute qualité");
     $("soundBtn").textContent = "Son : " + (S.sound ? "oui" : "non");
     $("voiceBtn").textContent = "Voix : " + (S.voice ? "oui" : "non");
     const shop = SB.purchases.available && !S.noAds;
@@ -906,7 +1083,8 @@
       const k = KEYMAP[e.code];
       if (k && mode === "play") { keys[k] = true; e.preventDefault(); }
       if (e.repeat) return;
-      if (e.code === "KeyH" && mode === "play") honk();
+      if (e.code === "KeyH" && mode === "play" && !foot) honk();
+      if (e.code === "KeyE") doAction();
       if (e.code === "KeyC") cycleCam();
       if (e.code === "KeyM") toggleMap();
       if (e.code === "KeyP" || e.code === "Escape") { if (mode === "map") toggleMap(false); else togglePause(); }
@@ -918,12 +1096,14 @@
     if (isTouch) document.body.classList.add("touch");
     for (const btn of document.querySelectorAll("#pad button")) {
       const k = btn.dataset.k;
-      const on = (e) => { e.preventDefault(); initAudio(); btn.classList.add("on"); try { btn.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } if (k === "horn") { if (mode === "play") honk(); } else keys[k] = true; };
+      const on = (e) => { e.preventDefault(); initAudio(); btn.classList.add("on"); try { btn.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } if (k === "horn") { if (mode === "play" && !foot) honk(); } else keys[k] = true; };
       const off = () => { btn.classList.remove("on"); if (k !== "horn") keys[k] = false; };
       btn.addEventListener("pointerdown", on); btn.addEventListener("pointerup", off); btn.addEventListener("pointercancel", off); btn.addEventListener("lostpointercapture", off);
       btn.addEventListener("contextmenu", (e) => e.preventDefault());
     }
     $("btnCam").addEventListener("click", cycleCam);
+    $("btnFoot").addEventListener("click", () => { initAudio(); if (!foot) toggleFoot(); else if (doorDist() < 3.2) toggleFoot(); else toast("Approche-toi de la portière"); });
+    $("interact").addEventListener("click", () => { initAudio(); doAction(); });
     $("btnMap").addEventListener("click", () => toggleMap());
     $("radar").addEventListener("click", () => toggleMap());
     $("btnCloseMap").addEventListener("click", () => toggleMap(false));
@@ -939,7 +1119,7 @@
     $("btnTowAd").addEventListener("click", () => tow(true));
     $("garage").addEventListener("click", onGarageClick);
     $("garage").addEventListener("change", onGarageChange);
-    $("qualityBtn").addEventListener("click", () => { S.quality = S.quality === "haute" ? "eco" : "haute"; save(); window.location.reload(); });
+    $("qualityBtn").addEventListener("click", () => { S.quality = { eco: "haute", haute: "ultra", ultra: "eco" }[S.quality] || "haute"; save(); window.location.reload(); });
     $("soundBtn").addEventListener("click", () => { S.sound = !S.sound; save(); if (master) master.gain.value = S.sound ? 0.5 : 0; renderGarage(); });
     $("voiceBtn").addEventListener("click", () => { S.voice = !S.voice; save(); SB.voice.setEnabled(S.voice); renderGarage(); });
     $("btnNoAds").addEventListener("click", () => SB.purchases.buy());
@@ -958,7 +1138,7 @@
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const frozen = mode === "pause" || mode === "map" || mode === "panne";
     if (!frozen) time += dt;
-    if (mode === "play") { updateBus(dt); updateStops(dt); elapsed += dt; if (day.kind === "city" && elapsed >= DAY) endDay(); }
+    if (mode === "play") { if (foot) updateWalker(dt); else { updateBus(dt); checkRedLight(dt); } updateStops(dt); updateEnergy(dt); elapsed += dt; if (day.kind === "city" && elapsed >= DAY) endDay(); }
     else if (engGain) engGain.gain.value = 0;
     if (!frozen) { updateTraffic(dt); updatePeople(dt); }
     if (!frozen && world.water) {
@@ -981,6 +1161,7 @@
       busMesh.rotation.z = -bus.steer * Math.min(1, Math.abs(bus.v) / 17) * 0.04;
       for (const w of busMesh.userData.wheels) w.rotation.x += (bus.v * dt) / (busMesh.userData.wheelR || 0.45);
     }
+    updateLights();
     updateCamera(dt);
     updateSky(dayFraction());
     updateMarkers();

@@ -2,7 +2,8 @@
 
 Jeu de conduite en 3D : on commence apprenti sur une Sotrama (minibus vert) dans les rues de Bamako et on finit grand transporteur avec ses propres Sotrama et ses cars sur les routes du Mali.
 
-- **En ville** : de 6 h à 20 h, on prend les passagers aux arrêts, on les dépose dans leur quartier, on fait le plein et on évite les accidents.
+- **En ville** : de 6 h à 20 h, on prend les passagers dans 37 quartiers, on les dépose, on fait le plein et on évite les accidents. Il y a des feux tricolores avec des policiers aux carrefours, des contrôles de police, des vendeuses au bord de la route, des restaurants, des maquis et des dibiteries, ainsi que les hôpitaux Gabriel Touré et du Point G.
+- **À pied** : le chauffeur peut descendre (touche E ou bouton « Descendre ») pour manger quand son énergie baisse, puis remonter dans son véhicule.
 - **Carrière** : apprenti (25 % de la recette) → chauffeur (10 000 F de versement par jour au patron) → propriétaire → patron (tes chauffeurs te versent la recette) → chauffeur de car → transporteur → grand transporteur. On peut prendre des apprentis sous son aile : après 12 jours, ils deviennent chauffeurs.
 - **Carte du Mali** : on choisit sa destination (Koulikoro, Bougouni, Ségou, Sikasso, Kayes, Mopti). La route nationale traverse la savane et des villages. Il y a des contrôles de police, des péages et des stations-service, et les passagers montent et descendent en chemin.
 - **Voix** : l'apprenti crie les arrêts, et les passagers et les policiers parlent. Avec le **studio de voix** (`voix.html`), tu enregistres ta propre voix pour chaque phrase.

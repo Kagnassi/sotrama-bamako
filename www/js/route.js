@@ -6,7 +6,7 @@
 
   SB.buildRoute = function (scene, trip, opts) {
     const quality = (opts && opts.quality) || "haute";
-    const ECO = quality !== "haute";
+    const ECO = quality === "eco";
     let seed = 7 + trip.km * 13 + trip.to.length * 101;
     const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     const rr = (a, b) => a + (b - a) * rnd();
@@ -273,6 +273,18 @@
     // distant hills
     for (let k = 0; k < 18; k++) iIco(rr(-900, 900) + (rnd() < 0.5 ? -700 : 700), -12, rr(-L - 600, 600), rr(120, 260), C(0x9a7a50, 0.15), 0.3);
 
+    // something to eat on the way: the shop of each station, the women selling at the village stops
+    const food = [], vendors = [];
+    for (const st of stations) { const p = at(st.s, HW + 15); food.push({ x: p[0], z: p[1], name: "Boutique de la station", item: "du pain et du thé", price: 500, energy: 80, kind: "station" }); }
+    for (const st of stops) {
+      if (st.kind !== "village") continue;
+      const p = at(st.s + 5, HW + 9), q = at(st.s + 6.5, HW + 10.5);
+      iBox(p[0], 0, p[1], 0.9, 0.82, 1.9, C(0x7a5534, 0.2), st.ang);
+      iIco(p[0], 0.95, p[1], 0.3, C(0x9a4a22, 0.15), 0.6);
+      vendors.push({ x: q[0], z: q[1], ang: Math.atan2(-st.nx, -st.nz), kind: "brochettes" });
+      food.push({ x: p[0] - st.nx * 1.1, z: p[1] - st.nz * 1.1, name: "Vendeuse", item: "des brochettes et du pain", price: 500, energy: 55, kind: "brochettes" });
+    }
+
     /* ---- flush ---- */
     finish(shB, std({ map: texSand, vertexColors: true, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }), false);
     finish(roadB, std({ map: texRoad, vertexColors: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }), false);
@@ -293,7 +305,7 @@
 
     landmarks.push({ name: destName, x: f(L), z: -L });
     return {
-      kind: "route", trip, L, nodes, roads, stops, stations, checkpoints, landmarks, parked, inRoad, nearestRoad, progress, at,
+      kind: "route", trip, L, nodes, roads, stops, stations, checkpoints, landmarks, parked, inRoad, nearestRoad, progress, at, food, vendors,
       RING: 12, RIVER: null, water: null,
       bounds: { x0: -400, x1: 400, z0: -L - 200, z1: 200 },
       start: { x: at(30, HW + 14)[0] - 6, z: at(30, HW + 14)[1] + 14, h: Math.PI },

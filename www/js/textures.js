@@ -436,6 +436,16 @@
     if (bottom) { fitText(g, bottom, 440, 48, 600, COND); g.fillText(bottom, 256, 142); }
     return toTex(c, false);
   };
+  T.hospitalSign = (name) => {
+    const [c, g] = canvas(640, 180);
+    g.fillStyle = "#f7f5ef"; roundRect(g, 4, 4, 632, 172, 14); g.fill();
+    g.strokeStyle = "#c0392b"; g.lineWidth = 6; roundRect(g, 14, 14, 612, 152, 10); g.stroke();
+    g.fillStyle = "#c0392b"; g.fillRect(78, 42, 32, 96); g.fillRect(46, 74, 96, 32);
+    g.textAlign = "left"; g.textBaseline = "middle";
+    g.fillStyle = "#1a1a1a"; fitText(g, "HÔPITAL", 430, 54, 700, COND); g.fillText("HÔPITAL", 176, 64);
+    g.fillStyle = "#c0392b"; fitText(g, name.toUpperCase(), 430, 50, 700, COND); g.fillText(name.toUpperCase(), 176, 122);
+    return toTex(c, false);
+  };
   T.kmMarker = (name, km) => {
     const [c, g] = canvas(128, 160);
     g.fillStyle = "#f4f1ea"; roundRect(g, 4, 4, 120, 152, 14); g.fill();
