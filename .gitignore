@@ -6,5 +6,6 @@ android/local.properties
 ios/App/Pods/
 ios/App/build/
 *.keystore
+!android/app/debug.keystore
 *.jks
 .DS_Store

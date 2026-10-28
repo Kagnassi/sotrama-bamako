@@ -1,0 +1,38 @@
+# Construit l'application Android de test (APK) à chaque push sur main
+# et la met en téléchargement dans l'onglet "Releases" du dépôt.
+name: APK Android de test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: apk
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx cap sync android
+      - name: Construire l'APK
+        run: |
+          chmod +x android/gradlew
+          cd android && ./gradlew assembleDebug --no-daemon
+      - name: Mettre l'APK en téléchargement
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk SotramaBamako.apk
+          gh release delete test --yes --cleanup-tag || true
+          gh release create test SotramaBamako.apk --title "Version de test" --notes "Version de test pour Android. Télécharge SotramaBamako.apk sur ton téléphone, ouvre-le et autorise l'installation d'applications inconnues."

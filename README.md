@@ -44,6 +44,18 @@ Le fichier `.github/workflows/pages.yml` publie automatiquement le dossier `www`
 
 Sur téléphone, ouvre le lien puis « Ajouter à l'écran d'accueil » : le jeu s'ouvre en plein écran comme une application. Dans cette version web, il n'y a ni publicités ni achats.
 
+## Faire essayer le jeu à des amis
+
+Deux fichiers dans `.github/workflows/` travaillent tout seuls à chaque `git push` :
+- `pages.yml` met la version web en ligne : `https://ton-pseudo.github.io/sotrama-bamako/`
+- `android-apk.yml` construit l'application Android et la met en téléchargement : `https://github.com/ton-pseudo/sotrama-bamako/releases/download/test/SotramaBamako.apk`
+
+**Ce que tes amis doivent faire :**
+- **Sur Android :** ouvrir le lien de l'APK, l'installer et autoriser « installer des applis inconnues ». Les nouvelles versions s'installent par-dessus l'ancienne.
+- **Sur iPhone :** ouvrir le lien web dans Safari, puis Partager → « Sur l'écran d'accueil ».
+
+Le suivi des constructions se trouve dans l'onglet **Actions** du dépôt : une coche verte veut dire que la construction a réussi.
+
 ## 3. Publier sur le Play Store (Android)
 
 **Prérequis :**
