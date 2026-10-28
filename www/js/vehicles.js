@@ -158,4 +158,51 @@
   People.prototype.release = function (i) { if (i < 0) return; this.body.setMatrixAt(i, ZERO); this.head.setMatrixAt(i, ZERO); this.wrap.setMatrixAt(i, ZERO); this.free.push(i); };
   People.prototype.commit = function () { this.body.instanceMatrix.needsUpdate = this.head.instanceMatrix.needsUpdate = this.wrap.instanceMatrix.needsUpdate = true; };
   SB.People = People;
+  /* ---------- the coach of Kagnassi Transport ---------- */
+  const COACH = { w: 2.55, h: 3.2, l: 12 };
+  SB.COACH = COACH;
+  SB.makeCoach = function (dest) {
+    const T = SB.tex.coach(dest);
+    const g = new THREE.Group();
+    const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+    const dark = std({ color: lin(0x1a1a1a), roughness: 0.9 }), white = std({ color: lin(0xf1efe8), roughness: 0.5 });
+    add(new THREE.BoxGeometry(COACH.w, COACH.h, COACH.l), [
+      std({ map: T.left, roughness: 0.45 }), std({ map: T.right, roughness: 0.45 }), white, dark,
+      std({ map: T.front, roughness: 0.4 }), std({ map: T.back, roughness: 0.45 }),
+    ], 0, 0.5 + COACH.h / 2, 0);
+    // roof luggage, as on the Malian coaches: bags, a bicycle frame, a moto under a tarp
+    add(new THREE.BoxGeometry(2.3, 0.1, 9), dark, 0, 0.5 + COACH.h + 0.05, -0.5);
+    const load = [[1.0, 0.6, 1.4, 0x2e6fb0, -0.5, -3.5], [0.9, 0.5, 1.2, 0xc0392b, 0.5, -2.3], [1.6, 0.7, 2.0, 0x3d6b3a, 0, -0.4], [0.8, 0.5, 1.0, 0xe2b31d, -0.6, 1.4], [1.2, 0.8, 1.6, 0x7a5534, 0.4, 2.8]];
+    for (const [w, h, d, c, x, z] of load) add(new THREE.BoxGeometry(w, h, d), std({ color: lin(c) }), x, 0.6 + COACH.h + h / 2, z);
+    const wheelGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.4, 18); wheelGeo.rotateZ(Math.PI / 2);
+    const wheels = [];
+    for (const [x, z] of [[-1.15, 4.1], [1.15, 4.1], [-1.15, -2.6], [1.15, -2.6], [-1.15, -3.9], [1.15, -3.9]]) wheels.push(add(wheelGeo, std({ color: lin(0x161616), roughness: 0.95 }), x, 0.55, z));
+    for (const x of [-1.38, 1.38]) add(new THREE.BoxGeometry(0.1, 0.4, 0.25), dark, x, 2.6, 5.9);
+    g.userData.wheels = wheels; g.userData.wheelR = 0.55;
+    return g;
+  };
+  SB.coachFleet = function (scene, count) {
+    const T = SB.tex.coach("");
+    const dark = std({ color: lin(0x1a1a1a) }), tire = std({ color: lin(0x111111), roughness: 0.95 });
+    return new Fleet(scene, [
+      { geo: new THREE.BoxGeometry(COACH.w, COACH.h, COACH.l), mat: [std({ map: T.left }), std({ map: T.right }), std({ color: lin(0xf1efe8) }), dark, std({ map: T.front }), std({ map: T.back })], y: 0.5 + COACH.h / 2 },
+      { geo: new THREE.BoxGeometry(2.0, 0.7, 6), mat: std(), y: 0.85 + COACH.h, z: -0.5, colorsRandom: [0x2e6fb0, 0x7a5534, 0x3d6b3a, 0xc0392b] },
+      { geo: wheelSet(0.55, 0.4, [[-1.15, 0.55, 4.1], [1.15, 0.55, 4.1], [-1.15, 0.55, -2.6], [1.15, 0.55, -2.6], [-1.15, 0.55, -3.9], [1.15, 0.55, -3.9]]), mat: tire },
+    ], count);
+  };
+  SB.truckFleet = function (scene, count) {
+    const tire = std({ color: lin(0x111111), roughness: 0.95 }), glass = std({ color: lin(0x26323a), roughness: 0.2, metalness: 0.3 });
+    return new Fleet(scene, [
+      { geo: new THREE.BoxGeometry(2.5, 2.6, 2.4), mat: std({ roughness: 0.5 }), y: 1.9, z: 4.2, colorsRandom: [0xd0d0d0, 0x2e6fb0, 0xc0392b, 0xe2b31d, 0x1d7f46, 0xffffff] },
+      { geo: new THREE.BoxGeometry(2.3, 0.9, 0.08), mat: glass, y: 2.55, z: 5.42 },
+      { geo: new THREE.BoxGeometry(2.55, 3.0, 8.4), mat: std({ roughness: 0.9 }), y: 2.1, z: -1.3, colorsRandom: [0x6b6b4f, 0x3a4a6b, 0x7a5534, 0x9a4a2a, 0x4f6b3a] },
+      { geo: wheelSet(0.55, 0.45, [[-1.15, 0.55, 4.4], [1.15, 0.55, 4.4], [-1.15, 0.55, -2.5], [1.15, 0.55, -2.5], [-1.15, 0.55, -3.8], [1.15, 0.55, -3.8]]), mat: tire },
+    ], count);
+  };
+
+  /* uniforms: police (dark blue-grey with a cap), toll agent */
+  SB.People.prototype.dress = function (i, cloth, cap) {
+    this.body.setColorAt(i, lin(cloth)); this.body.instanceColor.needsUpdate = true;
+    if (cap !== undefined) { this.wrap.setColorAt(i, lin(cap)); this.wrap.instanceColor.needsUpdate = true; this.hasWrap[i] = true; }
+  };
 })();

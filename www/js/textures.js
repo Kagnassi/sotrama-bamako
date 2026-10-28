@@ -397,5 +397,118 @@
     return taxiCache;
   };
 
+  /* ---------- countryside (coach trips) ---------- */
+  T.savanna = () => {
+    const [c, g] = canvas(512, 512);
+    g.fillStyle = "#b99a5e"; g.fillRect(0, 0, 512, 512);
+    blotch(g, 512, 512, 16, "#a8673d", 30, 100, 0.45);
+    blotch(g, 512, 512, 12, "#cdb37a", 30, 90, 0.4);
+    blotch(g, 512, 512, 8, "#7f8040", 20, 70, 0.3);
+    speckle(g, 512, 512, 9000, ["#8e6a3c", "#d4bd85", "#9c5a33", "#6f6a35"], 1, 3, 0.5);
+    g.lineWidth = 1;
+    for (let i = 0; i < 3500; i++) {
+      const x = rnd() * 512, y = rnd() * 512, l = rr(3, 9);
+      g.strokeStyle = pick(["#d9c58f", "#a58b4f", "#c7ad6c", "#8c7a43"]); g.globalAlpha = 0.55;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + rr(-3, 3), y - l); g.stroke();
+    }
+    g.globalAlpha = 1;
+    return toTex(c, true);
+  };
+  T.thatch = () => {
+    const [c, g] = canvas(256, 256);
+    g.fillStyle = "#b8955a"; g.fillRect(0, 0, 256, 256);
+    g.lineWidth = 2;
+    for (let i = 0; i < 1600; i++) {
+      const x = rnd() * 256, y = rnd() * 256;
+      g.strokeStyle = pick(["#d8b877", "#8f6f3a", "#c6a462", "#a5823f"]); g.globalAlpha = 0.7;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + rr(-2, 2), y + rr(10, 22)); g.stroke();
+    }
+    g.globalAlpha = 1;
+    for (let y = 0; y < 256; y += 32) { g.fillStyle = "rgba(60,40,20,0.25)"; g.fillRect(0, y, 256, 3); }
+    return toTex(c, true);
+  };
+  T.roadSign = (top, bottom, color) => {
+    const [c, g] = canvas(512, 200);
+    g.fillStyle = color || "#1d7f46"; roundRect(g, 6, 6, 500, 188, 16); g.fill();
+    g.strokeStyle = "#ffffff"; g.lineWidth = 7; roundRect(g, 16, 16, 480, 168, 10); g.stroke();
+    g.fillStyle = "#ffffff"; g.textAlign = "center"; g.textBaseline = "middle";
+    fitText(g, top, 440, 70, 700, COND); g.fillText(top, 256, bottom ? 76 : 100);
+    if (bottom) { fitText(g, bottom, 440, 48, 600, COND); g.fillText(bottom, 256, 142); }
+    return toTex(c, false);
+  };
+  T.kmMarker = (name, km) => {
+    const [c, g] = canvas(128, 160);
+    g.fillStyle = "#f4f1ea"; roundRect(g, 4, 4, 120, 152, 14); g.fill();
+    g.fillStyle = "#c0392b"; g.beginPath(); g.moveTo(4, 50); g.quadraticCurveTo(4, 4, 64, 4); g.quadraticCurveTo(124, 4, 124, 50); g.closePath(); g.fill();
+    g.fillStyle = "#ffffff"; g.textAlign = "center"; g.textBaseline = "middle"; fitText(g, name.toUpperCase(), 104, 26, 700, COND); g.fillText(name.toUpperCase(), 64, 30);
+    g.fillStyle = "#1a1a1a"; g.font = `700 52px ${COND}`; g.fillText(String(km), 64, 100);
+    return toTex(c, false);
+  };
+
+  /* ---------- the coach (car) of Kagnassi Transport ---------- */
+  const coachCache = {};
+  T.coach = (dest) => {
+    const key = dest || "";
+    if (coachCache[key]) return coachCache[key];
+    const W = 1600, H = 440, PX = W / 12;
+    function side(frontLeft, door) {
+      const [c, g] = canvas(W, H);
+      const X = (m) => (frontLeft ? m * PX : W - m * PX);
+      g.fillStyle = "#f4f2ec"; g.fillRect(0, 0, W, H);
+      // windows band
+      const gr = g.createLinearGradient(0, 40, 0, 190); gr.addColorStop(0, "#56707c"); gr.addColorStop(0.6, "#1d272d"); gr.addColorStop(1, "#151c20");
+      g.fillStyle = gr; g.fillRect(0, 44, W, 150);
+      g.fillStyle = "#e9e6de"; for (let m = 0.4; m < 12; m += 1.45) g.fillRect(X(m), 44, 8, 150);
+      for (let k = 0; k < 22; k++) { if (rnd() < 0.35) continue; g.fillStyle = "rgba(12,8,6,0.8)"; g.beginPath(); g.arc(X(1.2 + k * 0.5), 175, 16, Math.PI, 0); g.fill(); }
+      g.fillStyle = "rgba(255,255,255,0.1)"; for (let m = 0.6; m < 12; m += 2.9) { g.beginPath(); g.moveTo(X(m), 44); g.lineTo(X(m + 0.9), 44); g.lineTo(X(m + 0.3), 194); g.lineTo(X(m - 0.6), 194); g.closePath(); g.fill(); }
+      // stripes
+      g.fillStyle = "#1d7f46"; g.fillRect(0, 206, W, 26); g.fillStyle = "#f2b233"; g.fillRect(0, 232, W, 12);
+      g.fillStyle = "#c0392b"; g.fillRect(0, 244, W, 6);
+      // luggage hatches
+      g.strokeStyle = "rgba(0,0,0,0.28)"; g.lineWidth = 3;
+      for (let m = 2.6; m < 10.5; m += 1.6) g.strokeRect(Math.min(X(m), X(m + 1.4)), 300, Math.abs(X(m + 1.4) - X(m)), 96);
+      g.fillStyle = "#2a2a2a"; g.fillRect(0, H - 40, W, 40);
+      for (const m of [1.9, 8.6, 9.9]) { g.fillStyle = "#0e0e0e"; g.beginPath(); g.arc(X(m), H + 4, 0.62 * PX, Math.PI, 0); g.fill(); }
+      if (door) { const x0 = Math.min(X(0.25), X(1.25)); g.fillStyle = "#1b2328"; g.fillRect(x0, 44, Math.abs(X(1.25) - X(0.25)), H - 90); g.fillStyle = "#3a464d"; g.fillRect(x0 + Math.abs(X(1.25) - X(0.25)) / 2 - 2, 44, 4, H - 90); }
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.font = `400 54px ${DISPLAY}`; g.fillStyle = "#1d7f46"; g.fillText("KAGNASSI TRANSPORT", X(6.4), 286);
+      g.font = `700 30px ${COND}`; g.fillStyle = "#3a3a3a"; g.fillText("BAMAKO · SÉGOU · SIKASSO · KAYES · MOPTI", X(6.4), 404 - 40);
+      const dust = g.createLinearGradient(0, H, 0, H - 150); dust.addColorStop(0, "rgba(150,90,50,0.6)"); dust.addColorStop(1, "rgba(150,90,50,0)"); g.fillStyle = dust; g.fillRect(0, H - 150, W, 150);
+      return toTex(c, false);
+    }
+    function front() {
+      const [c, g] = canvas(640, 820);
+      g.fillStyle = "#f4f2ec"; g.fillRect(0, 0, 640, 820);
+      g.fillStyle = "#101010"; g.fillRect(70, 30, 500, 60);
+      g.fillStyle = "#ff9a2e"; g.textAlign = "center"; g.textBaseline = "middle"; fitText(g, (dest || "KAGNASSI").toUpperCase(), 470, 46, 700, COND); g.fillText((dest || "KAGNASSI").toUpperCase(), 320, 62);
+      const gr = g.createLinearGradient(0, 100, 0, 470); gr.addColorStop(0, "#9bb3bd"); gr.addColorStop(0.55, "#26323a"); gr.addColorStop(1, "#151c20");
+      g.fillStyle = "#121212"; roundRect(g, 24, 100, 592, 380, 24); g.fill();
+      g.fillStyle = gr; roundRect(g, 34, 110, 572, 360, 20); g.fill();
+      g.fillStyle = "rgba(255,255,255,0.14)"; g.beginPath(); g.moveTo(60, 110); g.lineTo(200, 110); g.lineTo(80, 470); g.lineTo(34, 470); g.closePath(); g.fill();
+      g.fillStyle = "#1d7f46"; g.fillRect(0, 500, 640, 40); g.fillStyle = "#f2b233"; g.fillRect(0, 540, 640, 16);
+      g.fillStyle = "#1d7f46"; g.font = `400 70px ${DISPLAY}`; g.fillText("KT", 320, 610);
+      for (const x of [90, 550]) { g.fillStyle = "#e9e9e2"; roundRect(g, x - 70, 650, 140, 70, 14); g.fill(); g.fillStyle = "#fff4c8"; g.beginPath(); g.arc(x - 24, 685, 22, 0, 7); g.arc(x + 26, 685, 22, 0, 7); g.fill(); }
+      g.fillStyle = "#2a2a2a"; g.fillRect(0, 740, 640, 80);
+      g.fillStyle = "#f3f0e6"; g.fillRect(250, 752, 140, 40); g.fillStyle = "#222"; g.font = `700 26px ${COND}`; g.fillText("KT 2026", 320, 773);
+      return toTex(c, false);
+    }
+    function back() {
+      const [c, g] = canvas(640, 820);
+      g.fillStyle = "#f4f2ec"; g.fillRect(0, 0, 640, 820);
+      const gr = g.createLinearGradient(0, 60, 0, 300); gr.addColorStop(0, "#6f8b96"); gr.addColorStop(1, "#151c20");
+      g.fillStyle = gr; roundRect(g, 60, 60, 520, 240, 18); g.fill();
+      g.fillStyle = "#1d7f46"; g.fillRect(0, 360, 640, 40); g.fillStyle = "#f2b233"; g.fillRect(0, 400, 640, 16);
+      g.textAlign = "center"; g.textBaseline = "middle"; g.font = `400 52px ${DISPLAY}`; g.fillStyle = "#1d7f46"; g.fillText("KAGNASSI", 320, 470);
+      g.font = `700 36px ${COND}`; g.fillStyle = "#333"; g.fillText("TRANSPORT", 320, 520);
+      g.fillStyle = "#3a3a3a"; for (let y = 560; y < 690; y += 18) g.fillRect(120, y, 400, 8);
+      for (const x of [50, 590]) { g.fillStyle = "#a3170f"; roundRect(g, x - 34, 540, 68, 150, 10); g.fill(); g.fillStyle = "#f29a1e"; g.fillRect(x - 30, 660, 60, 18); }
+      g.fillStyle = "#2a2a2a"; g.fillRect(0, 740, 640, 80);
+      const dust = g.createLinearGradient(0, 820, 0, 560); dust.addColorStop(0, "rgba(150,90,50,0.6)"); dust.addColorStop(1, "rgba(150,90,50,0)"); g.fillStyle = dust; g.fillRect(0, 560, 640, 260);
+      return toTex(c, false);
+    }
+    coachCache[key] = { left: side(true, false), right: side(false, true), front: front(), back: back() };
+    return coachCache[key];
+  };
+
   T._rnd = rnd;
 })();

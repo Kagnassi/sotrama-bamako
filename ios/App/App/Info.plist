@@ -65,6 +65,8 @@
 	<true/>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Le micro sert uniquement au studio de voix, pour enregistrer ta propre voix dans le jeu.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Cet identifiant sert uniquement à afficher des publicités plus adaptées dans le jeu.</string>
 	<key>SKAdNetworkItems</key>

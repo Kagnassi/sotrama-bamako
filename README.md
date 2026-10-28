@@ -1,6 +1,11 @@
 # Sotrama Bamako
 
-Jeu de conduite en 3D : on conduit une Sotrama (minibus vert) dans les rues de Bamako, des deux côtés du fleuve Niger, de 6 h à 20 h. Il faut prendre les passagers aux arrêts, les déposer dans leur quartier, faire le plein et éviter les accidents.
+Jeu de conduite en 3D : on commence apprenti sur une Sotrama (minibus vert) dans les rues de Bamako et on finit grand transporteur avec ses propres Sotrama et ses cars sur les routes du Mali.
+
+- **En ville** : de 6 h à 20 h, on prend les passagers aux arrêts, on les dépose dans leur quartier, on fait le plein et on évite les accidents.
+- **Carrière** : apprenti (25 % de la recette) → chauffeur (10 000 F de versement par jour au patron) → propriétaire → patron (tes chauffeurs te versent la recette) → chauffeur de car → transporteur → grand transporteur. On peut prendre des apprentis sous son aile : après 12 jours, ils deviennent chauffeurs.
+- **Carte du Mali** : on choisit sa destination (Koulikoro, Bougouni, Ségou, Sikasso, Kayes, Mopti). La route nationale traverse la savane et des villages. Il y a des contrôles de police, des péages et des stations-service, et les passagers montent et descendent en chemin.
+- **Voix** : l'apprenti crie les arrêts, et les passagers et les policiers parlent. Avec le **studio de voix** (`voix.html`), tu enregistres ta propre voix pour chaque phrase.
 
 Auteur : Cheickné Kagnassi
 
@@ -12,7 +17,12 @@ Auteur : Cheickné Kagnassi
 | `www/js/world.js` | La ville : routes, ponts, ronds-points, quartiers, bâtiments, arrêts, stations |
 | `www/js/textures.js` | Les textures dessinées par le code : façades, asphalte, couleurs des minibus, enseignes |
 | `www/js/vehicles.js` | La Sotrama du joueur, les motos Djakarta, les taxis, les autres Sotrama, les piétons |
-| `www/js/game.js` | Les règles : conduite, passagers, carburant, journée, garage, menus |
+| `www/js/route.js` | Les routes nationales entre deux villes : savane, villages, contrôles, péages, stations, gares routières |
+| `www/js/mali.js` | La carte du Mali : frontières, fleuves, villes, lignes de car, distances et prix des billets |
+| `www/js/voices.js` | Les voix du jeu : ta voix enregistrée, sinon un fichier de `www/voix/`, sinon la voix du téléphone |
+| `www/voix.html` | Le studio de voix pour enregistrer tes phrases |
+| `www/voix/` | Les voix livrées avec le jeu (fichiers audio + `liste.json`) |
+| `www/js/game.js` | Les règles : conduite, passagers, carburant, carrière, flotte, équipe, voyages en car, menus |
 | `www/js/monetization.js` | Les publicités AdMob et l'achat « Retirer les pubs » |
 | `www/privacy.html` | La politique de confidentialité, obligatoire sur les stores |
 | `android/` | Le projet Android Studio (Play Store) |
@@ -20,7 +30,14 @@ Auteur : Cheickné Kagnassi
 | `assets/` | L'icône et l'écran de démarrage d'origine |
 | `capacitor.config.json` | Le nom et l'identifiant de l'application : `com.kagnassi.sotramabamako` |
 
-Aucune image ni aucun modèle 3D externe n'est utilisé : tout est dessiné par le code, donc il n'y a pas de droits d'auteur à régler pour les visuels. Les seules ressources externes sont incluses dans le dossier avec leur licence : three.js (licence MIT) et les polices Barlow et Bowlby One (licence SIL OFL).
+## Mettre ta voix dans le jeu pour tout le monde
+
+1. Ouvre le jeu, puis **Studio de voix** (en bas du menu).
+2. Enregistre les phrases que tu veux. Dans le jeu, sur ton appareil, elles remplacent tout de suite la voix du téléphone.
+3. Clique sur **Tout télécharger (.zip)**, puis dézippe `voix-sotrama.zip` dans le dossier `www/voix/` du projet en remplaçant `liste.json`.
+4. Lance `git add www/voix`, `git commit -m "Ma voix"` et `git push`. Le site et l'APK se mettent à jour avec ta voix.
+
+Aucune image ni aucun modèle 3D externe n'est utilisé : tout est dessiné par le code, donc il n'y a pas de droits d'auteur à régler pour les visuels. Les seules ressources externes sont incluses dans le dossier avec leur licence : three.js et JSZip (licence MIT) et les polices Barlow et Bowlby One (licence SIL OFL).
 
 ## 1. Tester le jeu sur ton PC
 

@@ -16,9 +16,9 @@
 
   <!-- HUD -->
   <div class="hud panel" id="meter">
-    <div class="plate">SOTRAMA · RECETTE DU JOUR</div>
+    <div class="plate" id="plate">SOTRAMA · RECETTE DU JOUR</div>
     <div id="money">0<small>FCFA</small></div>
-    <div class="meta"><span id="clock">06:00</span><span id="dayLabel">Jour 1</span><span><b id="seats">0</b>/22</span></div>
+    <div class="meta"><span id="clock">06:00</span><span id="dayLabel">Jour 1</span><span><b id="seats">0</b>/<span id="cap">22</span></span></div>
     <div id="fuel"><span>Carburant</span><div class="bar"><i id="fuelBar"></i></div><b id="fuelText">0 L</b></div>
   </div>
   <div class="hud panel" id="guide" hidden>
@@ -36,6 +36,7 @@
   <div class="hud panel" id="onboard"></div>
   <div class="hud" id="speed">0<small>KM/H</small></div>
   <div class="hud panel" id="toast" role="status" aria-live="polite"></div>
+  <div class="hud" id="speech" aria-live="polite"><b></b><span></span></div>
 
   <div id="pad">
     <div class="pad-group">
@@ -51,36 +52,61 @@
     </div>
   </div>
 
-  <!-- Title screen and garage -->
+  <!-- Title screen: career, fleet, team, garage -->
   <div class="overlay garage" id="garage" hidden>
     <div class="gpanel">
-      <p class="kicker" id="gDay">Jour 1</p>
+      <p class="kicker" id="gDay">Jour 1 · Apprenti</p>
       <h1>Sotrama <span>Bamako</span></h1>
-      <p class="lede">Conduis le minibus vert dans 24 quartiers, des deux côtés du fleuve Niger. Remplis les 22 places, fais le plein à temps et rapporte la meilleure recette de 6 h à 20 h.</p>
+      <p class="lede">D'apprenti de Sotrama à grand transporteur : conduis dans Bamako, achète tes véhicules, prends des gens sous ton aile, puis pars en car sur les routes du Mali.</p>
+      <p class="where" id="gWhere">Tu es à Bamako.</p>
       <div class="bank"><span>Économies</span><b id="gSavings">0 F</b><small id="gBest"></small></div>
-      <button class="cta" id="btnStart" type="button">Démarrer le jour 1</button>
-      <h2>Couleurs du minibus</h2>
-      <div class="liveries" id="liveries"></div>
-      <h2>Garage</h2>
-      <div id="upgrades"></div>
+      <button class="cta" id="btnStart" type="button">Journée d'apprenti</button>
+      <button class="cta alt" id="btnMali" type="button">Carte du Mali : voyages en car</button>
+      <div class="goal" id="goal"></div>
       <p class="gmsg" id="gMsg" role="status"></p>
+      <details class="sect" open>
+        <summary>Ta flotte</summary>
+        <div id="fleet"></div>
+      </details>
+      <details class="sect">
+        <summary>Ton équipe</summary>
+        <div id="team"></div>
+      </details>
+      <div id="ownBlock" hidden>
+        <h2>Couleurs de ta Sotrama</h2>
+        <div class="liveries" id="liveries"></div>
+        <h2>Garage</h2>
+        <div id="upgrades"></div>
+      </div>
       <details class="howto">
         <summary>Comment jouer</summary>
         <ul class="rules">
-          <li><span class="dot"></span><span>Arrête-toi dans un <b>cercle blanc</b> : les passagers qui attendent montent.</span></li>
-          <li><span class="dot gold"></span><span>Les <b>cercles dorés</b> sont leurs quartiers : 250 F la course, 300 F s'ils traversent le fleuve, 50 F de plus pour les longs trajets.</span></li>
-          <li><span class="dot red"></span><span>Les <b>cercles rouges</b> sont les stations : le carburant coûte 800 F le litre, payé avec la recette du jour.</span></li>
-          <li><span class="dot red"></span><span>Évite les motos Djakarta, les taxis et les autres Sotrama : un accident coûte 500 à 1 000 F.</span></li>
+          <li><span class="dot"></span><span>Arrête-toi dans un <b>cercle blanc</b> : les passagers qui attendent montent. L'apprenti crie le nom du quartier.</span></li>
+          <li><span class="dot gold"></span><span>Les <b>cercles dorés</b> sont leurs destinations : 250 F la course en ville, 300 F s'ils traversent le fleuve.</span></li>
+          <li><span class="dot red"></span><span>Les <b>cercles rouges</b> sont les stations : le carburant coûte 800 F le litre.</span></li>
+          <li><span class="dot blue"></span><span>Sur la route, les <b>cercles bleus</b> sont les contrôles de police et les péages : arrête-toi, sinon c'est l'amende.</span></li>
+          <li><span class="dot"></span><span><b>Carrière</b> : apprenti (25 % de la recette), chauffeur (10 000 F de versement par jour), propriétaire, patron, chauffeur de car, transporteur.</span></li>
+          <li><span class="dot gold"></span><span>Un <b>apprenti</b> fait monter les passagers plus vite. Après 12 jours, nomme-le chauffeur de l'un de tes véhicules.</span></li>
         </ul>
         <p class="keys"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> ou <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire · <kbd>Espace</kbd> frein · <kbd>H</kbd> klaxon · <kbd>M</kbd> plan · <kbd>C</kbd> caméra · <kbd>P</kbd> pause</p>
       </details>
       <div class="settings">
         <button class="small ghost" id="qualityBtn" type="button"></button>
         <button class="small ghost" id="soundBtn" type="button"></button>
+        <button class="small ghost" id="voiceBtn" type="button"></button>
+        <a class="small ghost" href="voix.html">Studio de voix</a>
         <button class="small" id="btnNoAds" type="button" hidden>Retirer les pubs</button>
         <button class="small ghost" id="btnRestore" type="button" hidden>Restaurer mes achats</button>
         <a class="small ghost" href="privacy.html">Confidentialité</a>
       </div>
+    </div>
+  </div>
+
+  <!-- Map of Mali: choose where to go -->
+  <div class="overlay mali" id="maliBox" hidden>
+    <div class="mali-wrap">
+      <div class="mali-map"><svg id="maliSvg" role="img" aria-label="Carte du Mali avec les villes et les routes des cars"></svg></div>
+      <div class="mali-side" id="maliSide"></div>
     </div>
   </div>
 
@@ -95,16 +121,11 @@
 
   <div class="overlay" id="endBox" hidden>
     <div class="card">
-      <p class="kicker">20 h</p>
+      <p class="kicker" id="endKicker">20 h</p>
       <h1 id="endDay">Jour terminé</h1>
-      <div class="ledger">
-        <div><span>Courses</span><b id="endFares">0</b></div>
-        <div><span>Carburant</span><b id="endFuel">0</b></div>
-        <div><span>Accidents</span><b id="endFines">0</b></div>
-        <div class="total"><span>Recette nette</span><b id="endNet">0</b></div>
-      </div>
-      <p class="lede"><b id="endServed">0</b> passagers déposés. La recette nette va dans tes économies.</p>
-      <div class="actions"><button class="cta" id="btnNext" type="button">Journée suivante</button><button class="small" id="btnDouble" type="button" hidden></button></div>
+      <div class="ledger" id="ledger"></div>
+      <p class="lede"><b id="endServed">0</b> passagers déposés. Le gain net va dans tes économies.</p>
+      <div class="actions"><button class="cta" id="btnNext" type="button">Continuer</button><button class="small" id="btnDouble" type="button" hidden></button></div>
     </div>
   </div>
 
@@ -112,13 +133,13 @@
     <div class="card">
       <p class="kicker">Panne sèche</p>
       <h1>Plus une <span>goutte</span></h1>
-      <p class="lede">Le réservoir est vide. Un remorqueur peut t'apporter 10 litres.</p>
+      <p class="lede">Le réservoir est vide. Un remorqueur peut t'apporter du carburant.</p>
       <div class="actions"><button class="cta" id="btnTowPay" type="button">Payer 6 000 F</button><button class="small" id="btnTowAd" type="button" hidden>Regarder une pub : gratuit</button></div>
     </div>
   </div>
 
   <div class="overlay mapview" id="mapBox" hidden>
-    <canvas id="bigMap" aria-label="Plan de Bamako"></canvas>
+    <canvas id="bigMap" aria-label="Plan de la ville ou de la route"></canvas>
     <button class="small closemap" id="btnCloseMap" type="button">Fermer le plan</button>
   </div>
 
@@ -126,6 +147,9 @@
   <script src="js/textures.js"></script>
   <script src="js/world.js"></script>
   <script src="js/vehicles.js"></script>
+  <script src="js/mali.js"></script>
+  <script src="js/route.js"></script>
+  <script src="js/voices.js"></script>
   <script src="js/monetization.js"></script>
   <script src="js/game.js"></script>
 </body>
