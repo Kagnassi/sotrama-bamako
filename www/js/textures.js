@@ -152,9 +152,9 @@
     gr.addColorStop(0, "#5c7484"); gr.addColorStop(0.45, "#2c3a44"); gr.addColorStop(1, "#1f2a31");
     g.fillStyle = gr; g.fillRect(x, y, w, h);
     g.fillStyle = "rgba(255,255,255,0.12)"; g.beginPath(); g.moveTo(x + w * 0.1, y); g.lineTo(x + w * 0.45, y); g.lineTo(x + w * 0.1, y + h * 0.7); g.closePath(); g.fill();
-    g.fillStyle = "#2a2826";
-    for (let bx = x + 8; bx < x + w; bx += 11) g.fillRect(bx, y, 3, h);
-    g.fillRect(x, y + h / 2 - 1, w, 3);
+    g.strokeStyle = "#2a2826"; g.lineWidth = 2.5;
+    for (let k = -h; k < w; k += 16) { g.beginPath(); g.moveTo(x + k, y); g.lineTo(x + k + h, y + h); g.moveTo(x + k + h, y); g.lineTo(x + k, y + h); g.save(); g.rect(x, y, w, h); g.clip(); g.stroke(); g.restore(); }
+    g.fillStyle = "#2a2826"; g.fillRect(x, y + h / 2 - 1, w, 3); g.fillRect(x, y, w, 3); g.fillRect(x, y + h - 3, w, 3); g.fillRect(x, y, 3, h); g.fillRect(x + w - 3, y, 3, h);
     g.fillStyle = "#d9d0c0"; g.fillRect(x - 10, y + h + 6, w + 20, 6);
     g.fillStyle = "rgba(110,70,40,0.25)"; g.fillRect(x + 4, y + h + 12, 4, rr(10, 30)); g.fillRect(x + w - 10, y + h + 12, 3, rr(8, 22));
   }
@@ -434,6 +434,36 @@
     g.fillStyle = "#ffffff"; g.textAlign = "center"; g.textBaseline = "middle";
     fitText(g, top, 440, 70, 700, COND); g.fillText(top, 256, bottom ? 76 : 100);
     if (bottom) { fitText(g, bottom, 440, 48, 600, COND); g.fillText(bottom, 256, 142); }
+    return toTex(c, false);
+  };
+  /* ---------- faces (cartoon): colour map multiplied by the skin, eye whites in the emissive map ---------- */
+  // the sphere's front (+z) is at u = 0.25
+  T.face = () => {
+    const W = 512, H = 256, [c, g] = canvas(W, H), [c2, g2] = canvas(W, H);
+    g.fillStyle = "#ffffff"; g.fillRect(0, 0, W, H);
+    g2.fillStyle = "#000000"; g2.fillRect(0, 0, W, H);
+    const cx = W * 0.25, ey = H * 0.45;
+    for (const s of [-1, 1]) {
+      const ex = cx + s * 30;
+      g2.fillStyle = "#ffffff"; g2.beginPath(); g2.ellipse(ex, ey, 15, 19, 0, 0, 7); g2.fill();          // eye white (glows a little)
+      g.fillStyle = "#3b2416"; g.beginPath(); g.ellipse(ex + s * 1, ey + 2, 9, 12, 0, 0, 7); g.fill();   // iris
+      g.fillStyle = "#0a0604"; g.beginPath(); g.ellipse(ex + s * 1, ey + 3, 5, 7, 0, 0, 7); g.fill();    // pupil
+      g2.fillStyle = "#000000"; g2.beginPath(); g2.ellipse(ex + s * 1, ey + 2, 9, 12, 0, 0, 7); g2.fill();
+      g2.fillStyle = "#ffffff"; g2.beginPath(); g2.arc(ex + s * 1 - 3, ey - 3, 2.6, 0, 7); g2.fill();      // shine
+      g.strokeStyle = "#1a0f08"; g.lineWidth = 5; g.lineCap = "round";
+      g.beginPath(); g.moveTo(ex - 16, ey - 26 + s * 0); g.quadraticCurveTo(ex, ey - 34, ex + 16, ey - 25); g.stroke(); // eyebrow
+    }
+    g.fillStyle = "rgba(60,30,15,0.35)"; g.beginPath(); g.ellipse(cx, ey + 30, 9, 7, 0, 0, 7); g.fill();          // nose
+    g.strokeStyle = "#4a1a14"; g.lineWidth = 6; g.beginPath(); g.moveTo(cx - 20, ey + 52); g.quadraticCurveTo(cx, ey + 66, cx + 20, ey + 52); g.stroke(); // smile
+    g2.fillStyle = "#ffffff"; g2.beginPath(); g2.moveTo(cx - 14, ey + 55); g2.quadraticCurveTo(cx, ey + 64, cx + 14, ey + 55); g2.lineTo(cx + 12, ey + 54); g2.quadraticCurveTo(cx, ey + 60, cx - 12, ey + 54); g2.fill();
+    for (const s of [-1, 1]) { g.fillStyle = "rgba(40,20,10,0.25)"; g.beginPath(); g.ellipse(cx + s * 122, ey + 20, 10, 18, 0, 0, 7); g.fill(); } // ears
+    const map = toTex(c, false), emissive = new THREE.CanvasTexture(c2);
+    return { map, emissive };
+  };
+  T.policeDoor = () => {
+    const [c, g] = canvas(256, 64);
+    g.fillStyle = "#f4f4f0"; g.fillRect(0, 0, 256, 64);
+    g.fillStyle = "#1f3a6b"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `700 44px ${COND}`; g.fillText("POLICE", 128, 34);
     return toTex(c, false);
   };
   T.hospitalSign = (name) => {

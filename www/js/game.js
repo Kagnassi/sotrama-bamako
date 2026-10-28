@@ -61,7 +61,7 @@
   /* ---------- engine objects ---------- */
   let renderer, scene, camera, sun, hemi, sky, sunSprite, dust;
   let worldGroup = null, world = null, loaded = "";
-  let busMesh, motos, taxis, aiBuses = {}, trucks, coaches, people;
+  let busMesh, motos, taxis, cars, suvs, aiBuses = {}, trucks, coaches, people;
   const agents = [], walkers = [], pedestrians = [];
   const bus = { x: 0, z: 0, h: 0, v: 0, steer: 0, fuel: 20 };
   let veh = null; // the vehicle driven today
@@ -113,7 +113,7 @@
     SB.ads.init(S);
     document.addEventListener("deviceready", () => SB.purchases.init(), false);
     if (S.city === "bamako") await loadCity(); else await loadRoute(SB.mali.routesFrom(S.city)[0]);
-    if (window.location.search.includes("debug")) SB.debug = { bus, get world() { return world; }, get foot() { return foot; }, get day() { return day; }, onboard: () => onboard, stats: () => renderer.info.render, S, startTrip, startCityDay, toggleFoot, doAction, lightState, snap: () => { camInit = false; } };
+    if (window.location.search.includes("debug")) SB.debug = { bus, get world() { return world; }, get foot() { return foot; }, get day() { return day; }, onboard: () => onboard, stats: () => renderer.info.render, S, startTrip, startCityDay, toggleFoot, doAction, lightState, startPursuit, get police() { return police; }, get scene() { return scene; }, snap: () => { camInit = false; } };
     showGarage();
     requestAnimationFrame(frame);
   }
@@ -143,16 +143,18 @@
       resetWorldState();
       world = SB.buildWorld(worldGroup, { quality: S.quality });
       world.kind = "city";
-      people = new SB.People(worldGroup, HIGH ? 540 : 440);
+      people = new SB.People(worldGroup, HIGH ? 480 : 380, { low: !HIGH });
       motos = SB.motoFleet(worldGroup, HIGH ? 46 : 32);
-      taxis = SB.taxiFleet(worldGroup, HIGH ? 14 : 10);
+      taxis = SB.taxiFleet(worldGroup, HIGH ? 9 : 6);
+      cars = SB.carFleet(worldGroup, HIGH ? 10 : 7);
+      suvs = SB.suvFleet(worldGroup, HIGH ? 5 : 3);
       aiBuses = { vert: SB.busFleet(worldGroup, "vert", 5), bleu: SB.busFleet(worldGroup, "bleu", 2) };
       const parked = {};
       for (const p of world.parked) (parked[p.livery] = parked[p.livery] || []).push(p);
       for (const [liv, list] of Object.entries(parked)) { const f = SB.busFleet(worldGroup, liv, list.length, true); list.forEach((p, i) => f.set(i, p.x, 0.06, p.z, p.ang)); f.commit(); }
       world.lightByNode = new Map(world.lights.map((L) => [L.node, L]));
       spawnTraffic(); spawnPedestrians(); placeStaticPeople();
-      for (const s of world.stops) { const n = Math.floor(rand(1, 4)); for (let k = 0; k < n; k++) addWaiting(s); }
+      for (const s of world.stops) { const n = Math.floor(rand(2, 6)); for (let k = 0; k < n; k++) addWaiting(s); }
       loaded = "city";
     });
   }
@@ -162,9 +164,11 @@
     await withLoading("Route de " + SB.mali.CITIES[trip.to].name + "…", () => {
       resetWorldState();
       world = SB.buildRoute(worldGroup, trip, { quality: S.quality });
-      people = new SB.People(worldGroup, 270);
+      people = new SB.People(worldGroup, 270, { low: !HIGH });
       motos = SB.motoFleet(worldGroup, HIGH ? 12 : 8);
-      taxis = SB.taxiFleet(worldGroup, 4);
+      taxis = SB.taxiFleet(worldGroup, 3);
+      cars = SB.carFleet(worldGroup, 3);
+      suvs = SB.suvFleet(worldGroup, 3);
       trucks = SB.truckFleet(worldGroup, HIGH ? 10 : 7);
       coaches = SB.coachFleet(worldGroup, HIGH ? 3 : 2);
       const pc = SB.coachFleet(worldGroup, world.parked.length); world.parked.forEach((p, i) => pc.set(i, p.x, 0.06, p.z, p.ang)); pc.commit();
@@ -191,7 +195,7 @@
       busMesh = SB.makeCoach(trip ? SB.mali.CITIES[trip.to].name : "");
     } else {
       const own = myVehicle("sotrama");
-      veh = { type: "sotrama", own, cap: 22, maxv: own ? ENGINE[S.engine].v : 17, acc: 6.5, hl: 2.7, hw: 1.15, wheelR: 0.45, tank: own ? TANK[S.tank].v : 50, perMeter: 1 / M_PER_L, label: "Sotrama" };
+      veh = { type: "sotrama", own, cap: 30, maxv: own ? ENGINE[S.engine].v : 17, acc: 6.5, hl: 2.7, hw: 1.15, wheelR: 0.45, tank: own ? TANK[S.tank].v : 50, perMeter: 1 / M_PER_L, label: "Sotrama" };
       busMesh = SB.makeBus(own ? S.livery : "vert");
     }
     scene.add(busMesh);
@@ -232,12 +236,14 @@
     ag.hx = (ag.path[1][0] - ag.path[0][0]) / d; ag.hz = (ag.path[1][1] - ag.path[0][1]) / d; ag.rang = Math.atan2(ag.hx, ag.hz);
     ag.crash = 0; ag.roll = 0; ag.speed = ag.base * 0.6;
   }
-  const SIZE = { moto: [1.8, 0.7], taxi: [4.2, 1.8], bus: [5.4, 2.3], coach: [12, 2.55], truck: [10.8, 2.55] };
+  const SIZE = { moto: [1.9, 0.75], taxi: [4.5, 1.85], car: [4.5, 1.85], suv: [4.9, 1.95], bus: [5.4, 2.3], coach: [12, 2.55], truck: [10.8, 2.55] };
   function spawnTraffic() {
     const add = (fleet, i, type, base, lane) => { const ag = { fleet, i, type, base, lane, len: SIZE[type][0], wid: SIZE[type][1], dodge: 0 }; placeAgent(ag); agents.push(ag); };
     const road = world.kind === "route";
     for (let i = 0; i < motos.count; i++) add(motos, i, "moto", road ? rand(12, 18) : rand(9, 14), road ? rand(2.4, 3.4) : rand(2.0, 4.2));
     for (let i = 0; i < taxis.count; i++) add(taxis, i, "taxi", road ? rand(17, 22) : rand(8, 12), road ? 2.3 : 3);
+    for (let i = 0; i < cars.count; i++) add(cars, i, "car", road ? rand(18, 24) : rand(8, 12.5), road ? 2.3 : 3);
+    for (let i = 0; i < suvs.count; i++) add(suvs, i, "suv", road ? rand(18, 24) : rand(8, 12), road ? 2.3 : 3);
     for (const f of Object.values(aiBuses)) for (let i = 0; i < f.count; i++) add(f, i, "bus", rand(7, 10), 3.2);
     if (trucks) for (let i = 0; i < trucks.count; i++) add(trucks, i, "truck", rand(14, 19), 2.3);
     if (coaches) for (let i = 0; i < coaches.count; i++) add(coaches, i, "coach", rand(18, 23), 2.3);
@@ -284,19 +290,19 @@
       let da = Math.atan2(ag.hx, ag.hz) - ag.rang; da = Math.atan2(Math.sin(da), Math.cos(da)); ag.rang += da * Math.min(1, dt * 7);
       ag.fleet.set(ag.i, ag.rx, 0.08, ag.rz, ag.rang, ag.type === "moto" ? ag.roll : ag.roll * 0.15);
     }
-    for (const f of [motos, taxis, trucks, coaches, ...Object.values(aiBuses)]) if (f) f.commit();
+    for (const f of [motos, taxis, cars, suvs, trucks, coaches, ...Object.values(aiBuses)]) if (f) f.commit();
   }
 
   /* ---------- people ---------- */
   const BRIGHT = [0xe2b31d, 0xb83280, 0xd2541f, 0x1f8a4c, 0x3d8fd1, 0x6a2d7a, 0xc0392b, 0x0f6b6b];
   const pickC = (a) => a[Math.floor(Math.random() * a.length)];
   function placeStaticPeople() {
-    for (const v of world.vendors || []) { const id = people.alloc(); if (id < 0) break; people.dress(id, pickC(BRIGHT), pickC(BRIGHT)); people.set(id, v.x, v.z, v.ang); }
+    for (const v of world.vendors || []) { const id = people.alloc(); if (id < 0) break; people.dress(id, pickC(BRIGHT), pickC(BRIGHT), pickC(BRIGHT)); people.set(id, v.x, v.z, v.ang); }
     for (const L of world.lights || []) if (L.cop) { const id = people.alloc(); if (id < 0) break; people.dress(id, 0xf4f4f0, 0x1f2a5a); people.set(id, L.cop[0], L.cop[1], L.cop[2]); }
     people.commit();
   }
   function spawnPedestrians() {
-    for (let k = 0; k < (HIGH ? 70 : 40); k++) {
+    for (let k = 0; k < (HIGH ? 60 : 36); k++) {
       const rd = world.roads[Math.floor(Math.random() * world.roads.length)];
       if (Math.abs(world.nodes[rd.a].z) < 80 && Math.abs(world.nodes[rd.b].z) < 80) continue;
       const id = people.alloc(); if (id < 0) break;
@@ -309,16 +315,16 @@
       p.t += p.dir * p.v * dt; if (p.t < 8 || p.t > p.rd.len - 8) p.dir *= -1;
       const A = world.nodes[p.rd.a], off = p.rd.w / 2 + 1.8;
       p.ph += dt * 7;
-      people.set(p.id, A.x + p.rd.dx * p.t + p.rd.nx * p.side * off, A.z + p.rd.dz * p.t + p.rd.nz * p.side * off, Math.atan2(p.rd.dx * p.dir, p.rd.dz * p.dir), Math.abs(Math.sin(p.ph)) * 0.05);
+      people.set(p.id, A.x + p.rd.dx * p.t + p.rd.nx * p.side * off, A.z + p.rd.dz * p.t + p.rd.nz * p.side * off, Math.atan2(p.rd.dx * p.dir, p.rd.dz * p.dir), p.ph);
     }
     for (let i = walkers.length - 1; i >= 0; i--) {
       const w = walkers[i]; w.life -= dt; w.x += w.vx * dt; w.z += w.vz * dt; w.ph += dt * 7;
       if (w.life <= 0) { people.release(w.id); walkers.splice(i, 1); continue; }
-      people.set(w.id, w.x, w.z, Math.atan2(w.vx, w.vz), Math.abs(Math.sin(w.ph)) * 0.05);
+      people.set(w.id, w.x, w.z, Math.atan2(w.vx, w.vz), w.ph);
     }
     people.commit();
   }
-  const SLOTS = [[-0.6, 0], [0.6, 0], [-1.8, 0.3], [1.8, 0.3], [-1.2, 1.2], [1.2, 1.2], [-3, 0.5], [3, 0.5]];
+  const SLOTS = [[-0.6, 0], [0.6, 0], [-1.8, 0.3], [1.8, 0.3], [-1.2, 1.2], [1.2, 1.2], [-3, 0.5]];
   function addWaiting(s, info) {
     const used = new Set(s.waiting.map((w) => w.slot));
     let slot = SLOTS.findIndex((_, i) => !used.has(i));
@@ -326,13 +332,23 @@
     const w = Object.assign({ slot, id: -1 }, info || {});
     if (slot >= 0) {
       const id = people.alloc();
-      if (id >= 0) { const [a, o] = SLOTS[slot]; people.set(id, s.sx + s.dx * a - s.nx * (1.4 - o), s.sz + s.dz * a - s.nz * (1.4 - o), Math.atan2(-s.nx, -s.nz)); people.commit(); w.id = id; }
+      if (id >= 0) { const [a, o] = SLOTS[slot]; w.x = s.sx + s.dx * a - s.nx * (1.4 - o); w.z = s.sz + s.dz * a - s.nz * (1.4 - o); people.set(id, w.x, w.z, Math.atan2(-s.nx, -s.nz)); people.commit(); w.id = id; }
     }
     s.waiting.push(w);
   }
+  // the passenger door: at the back on the right of a Sotrama, at the front on the right of a coach
+  function doorWorld() {
+    const fx = Math.sin(bus.h), fz = Math.cos(bus.h), back = veh && veh.type === "coach" ? -(veh.hl - 1.4) : 1.4, side = (veh ? veh.hw : 1.15) + 0.35;
+    return { x: bus.x - fx * back - fz * side, z: bus.z - fz * back + fx * side };
+  }
   function addWalker(s) {
     const id = people.alloc(); if (id < 0) return;
-    walkers.push({ id, x: s.zx + s.nx * 2.5, z: s.zz + s.nz * 2.5, vx: s.nx * 1.3 + s.dx * rand(-0.4, 0.4), vz: s.nz * 1.3 + s.dz * rand(-0.4, 0.4), life: 4, ph: 0 });
+    const d = doorWorld(), tx = s.sx + s.dx * rand(-3, 3), tz = s.sz + s.dz * rand(-3, 3), l = Math.hypot(tx - d.x, tz - d.z) || 1;
+    walkers.push({ id, x: d.x, z: d.z, vx: ((tx - d.x) / l) * 1.4, vz: ((tz - d.z) / l) * 1.4, life: 5, ph: 0 });
+  }
+  function boardWalker(w) {
+    const d = doorWorld(), l = Math.hypot(d.x - w.x, d.z - w.z) || 1;
+    walkers.push({ id: w.id, x: w.x, z: w.z, vx: ((d.x - w.x) / l) * 2.4, vz: ((d.z - w.z) / l) * 2.4, life: Math.min(4, l / 2.4), ph: 0 });
   }
   function clearStops() { for (const s of world.stops) { s.waiting.forEach((w) => people.release(w.id)); s.waiting = []; } people.commit(); }
 
@@ -347,13 +363,13 @@
     elapsed = 0; onboard = []; onboardDirty = true; fuelWarned = false; slowT = 0;
     resetBus(); bus.fuel = veh.own ? Math.min(20 + veh.tank * 0.2, veh.tank) : 30;
     clearStops();
-    for (const s of world.stops) { s.spawnT = rand(1, 8); const n = Math.floor(rand(1, 4)); for (let k = 0; k < n; k++) addWaiting(s); }
+    for (const s of world.stops) { s.spawnT = rand(1, 6); const n = Math.floor(rand(2, 6)); for (let k = 0; k < n; k++) addWaiting(s); }
     for (const cp of world.checkpoints) {
       for (const id of cp.ids || []) people.release(id);
       Object.assign(cp, { ids: [], wait: 0, inside: false, greeted: false, state: Math.random() < 0.65 ? "pending" : "off" });
       if (cp.state === "pending") for (const [x, z] of cp.people) { const id = people.alloc(); if (id < 0) continue; people.dress(id, 0x34465e, 0x1f2a36); people.set(id, x, z, cp.ang + Math.PI / 2); cp.ids.push(id); }
     }
-    people.commit(); resetFoot();
+    people.commit(); resetFoot(); endPursuit();
     mode = "play";
     toast(asApprenti ? "Jour " + S.day + " · Apprenti : le patron te laisse conduire sa Sotrama" : "Jour " + S.day + " · 6 h : départ de Grand Marché");
   }
@@ -376,7 +392,7 @@
     setupVehicle("coach", trip);
     const own = veh.own;
     day = { kind: "trip", trip, fares: 0, fuel: 0, fines: 0, toll: 0, food: 0, energy: 100, served: 0, accidents: 0, doubled: false, own: !!own, rent: own ? 0 : carRent(trip.km), maint: own ? carMaint(trip.km) : 0 };
-    elapsed = 0; onboard = []; onboardDirty = true; fuelWarned = false; slowT = 0; resetFoot();
+    elapsed = 0; onboard = []; onboardDirty = true; fuelWarned = false; slowT = 0; resetFoot(); endPursuit();
     resetBus();
     const need = trip.km * 0.3;
     bus.fuel = Math.min(veh.tank, need * 0.7 + 10); day.fuel = bus.fuel * FUEL_PRICE;
@@ -430,7 +446,7 @@
     return { lines, net };
   }
   function endDay(title) {
-    mode = "end"; keys.up = keys.down = false; resetFoot();
+    mode = "end"; keys.up = keys.down = false; resetFoot(); endPursuit();
     pending = settle();
     $("endDay").textContent = title || "Jour " + S.day + " terminé";
     $("endKicker").textContent = day.kind === "trip" ? "Fin du voyage" : "20 h";
@@ -463,8 +479,9 @@
     return true;
   }
   function updateBus(dt) {
-    const MAXV = veh.maxv * (day.energy <= 0 ? 0.8 : 1), dry = bus.fuel <= 0;
-    if (keys.up && !dry) bus.v += (bus.v >= 0 ? veh.acc : 14) * dt;
+    const MAXV = veh.maxv * (day.energy <= 0 ? 0.8 : 1), dry = bus.fuel <= 0, lock = holdT > 0;
+    if (lock) { holdT -= dt; bus.v *= 0.85; }
+    if (keys.up && !dry && !lock) bus.v += (bus.v >= 0 ? veh.acc : 14) * dt;
     if (keys.down) bus.v -= (bus.v > 0.4 ? 14 : dry ? 0 : 4) * dt;
     if (!keys.up && !keys.down || dry) bus.v -= Math.sign(bus.v) * Math.min(Math.abs(bus.v), 2.6 * dt);
     if (keys.brake) bus.v -= Math.sign(bus.v) * Math.min(Math.abs(bus.v), 20 * dt);
@@ -499,18 +516,18 @@
       if (ag.crash > 0) continue;
       const rx = ag.rx - bus.x, rz = ag.rz - bus.z, al = rx * fx + rz * fz, lt = rx * fz - rz * fx;
       if (Math.abs(al) < (veh.hl + ag.len / 2) * 0.9 && Math.abs(lt) < (veh.hw + ag.wid / 2) * 0.9 && Math.abs(bus.v) > 2.5 && crashCool <= 0) {
-        const fine = { moto: 1000, taxi: 2000, bus: 2000, truck: 5000, coach: 5000 }[ag.type];
+        const fine = { moto: 500, taxi: 1000, car: 1000, suv: 1500, bus: 1000, truck: 2000, coach: 2000 }[ag.type];
         day.fines += fine; day.accidents++; crashCool = 1.5; bus.v *= -0.2; ag.crash = 2.4;
         thud(); popCash("−" + fmt(fine) + " F", true); SB.voice.say("doucement");
-        toast({ moto: "Accident avec une Djakarta", taxi: "Accrochage avec un taxi", bus: "Accrochage avec une Sotrama", truck: "Accrochage avec un camion", coach: "Accrochage avec un car" }[ag.type] + " : −" + fmt(fine) + " F", "bad");
+        toast({ moto: "Accident avec une Djakarta", taxi: "Accrochage avec un taxi", car: "Accrochage avec une voiture", suv: "Accrochage avec un 4x4", bus: "Accrochage avec une Sotrama", truck: "Accrochage avec un camion", coach: "Accrochage avec un car" }[ag.type] + " : −" + fmt(fine) + " F", "bad");
       }
     }
   }
   function breakdown() { mode = "panne"; keys.up = false; $("btnTowAd").hidden = !SB.ads.rewardedAvailable(); show("panneBox", true); }
   async function tow(withAd) {
-    if (withAd) { const ok = await SB.ads.showRewarded(); if (!ok) return; } else day.fines += 6000;
+    if (withAd) { const ok = await SB.ads.showRewarded(); if (!ok) return; } else day.fines += 4000;
     bus.fuel = veh.type === "coach" ? 40 : 10; show("panneBox", false); mode = "play"; fuelWarned = false;
-    toast(withAd ? "Remorqué gratuitement, carburant ajouté" : "Remorquage : −6 000 F, carburant ajouté");
+    toast(withAd ? "Remorqué gratuitement, carburant ajouté" : "Remorquage : −4 000 F, carburant ajouté");
   }
 
   /* ---------- stops, checkpoints and fuel stations ---------- */
@@ -531,7 +548,7 @@
   function updateStops(dt) {
     refuel(dt);
     const city = world.kind === "city";
-    if (city) for (const s of world.stops) { s.spawnT -= dt; if (s.spawnT <= 0) { s.spawnT = rand(7, 18) / (helpers() ? 1.3 : 1); if (s.waiting.length < 8) addWaiting(s); } }
+    if (city) for (const s of world.stops) { s.spawnT -= dt; if (s.spawnT <= 0) { s.spawnT = rand(5, 12) / (helpers() ? 1.3 : 1); if (s.waiting.length < 12) addWaiting(s); } }
     if (!city) updateCheckpoints(dt); else updateCityPolice(dt);
     if (foot) { atStop = null; return; }
     let near = null, nd = 1e9;
@@ -558,11 +575,12 @@
         arrive(); return;
       }
       if (pickup) {
-        const w = s.waiting.shift(); people.release(w.id);
+        const w = s.waiting.shift();
+        if (w.id >= 0 && w.x !== undefined) boardWalker(w); else people.release(w.id);
         const hidden = w.slot >= 0 ? s.waiting.find((x) => x.slot < 0) : null;
         if (hidden) {
           const id = people.alloc();
-          if (id >= 0) { const [a, o] = SLOTS[w.slot]; people.set(id, s.sx + s.dx * a - s.nx * (1.4 - o), s.sz + s.dz * a - s.nz * (1.4 - o), Math.atan2(-s.nx, -s.nz)); hidden.slot = w.slot; hidden.id = id; }
+          if (id >= 0) { const [a, o] = SLOTS[w.slot]; hidden.x = s.sx + s.dx * a - s.nx * (1.4 - o); hidden.z = s.sz + s.dz * a - s.nz * (1.4 - o); people.set(id, hidden.x, hidden.z, Math.atan2(-s.nx, -s.nz)); hidden.slot = w.slot; hidden.id = id; }
         }
         people.commit();
         if (city) { const dest = pickDest(s); onboard.push({ dest, fare: fareFor(s.i, dest) }); }
@@ -586,8 +604,9 @@
           else { SB.voice.say("police_ok", null, true); toast("Contrôle de police : papiers en règle"); }
         } }
       } else if (sb > cp.s + 25) {
-        cp.state = "fined"; const fine = cp.kind === "police" ? 10000 : 5000; day.fines += fine; popCash("−" + fmt(fine) + " F", true);
-        SB.voice.say("police_amende", null, true); toast(cp.kind === "police" ? "Tu n'as pas marqué l'arrêt au contrôle : −10 000 F" : "Passage en force au péage : −5 000 F", "bad");
+        cp.state = "fined";
+        if (cp.kind === "police") startPursuit(cp.people[0][0], cp.people[0][1], "contrôle de police non respecté", 3000);
+        else { day.fines += 2500; popCash("−2 500 F", true); SB.voice.say("police_amende", null, true); toast("Passage en force au péage : −2 500 F", "bad"); }
       }
     }
   }
@@ -629,7 +648,7 @@
       if (d > N.disc + 2.5 || d < N.disc - 2 || dx * fx + dz * fz <= 0) continue;
       if (lightState(L, Math.abs(fx) > Math.abs(fz) ? "x" : "z") !== "red") continue;
       redCool = 5;
-      if (L.cop) { day.fines += 5000; popCash("−5 000 F", true); SB.voice.say("police_feu", null, true); toast("Feu rouge grillé devant le policier : −5 000 F", "bad"); }
+      if (L.cop) startPursuit(L.cop[0], L.cop[1], "feu rouge grillé", 2500);
       else { toast("Feu rouge grillé !", "bad"); if (onboard.length) SB.voice.say("doucement"); }
     }
   }
@@ -645,10 +664,66 @@
         if (Math.abs(bus.v) < 1) { cp.wait += dt; if (cp.wait > 1.4) { cp.state = "ok"; cp.cool = 150; SB.voice.say("police_ok", null, true); toast("Contrôle de police : papiers en règle"); } }
       } else if (cp.inside && d > 20) {
         Object.assign(cp, { inside: false, state: "fined", cool: 60 });
-        day.fines += 5000; popCash("−5 000 F", true); SB.voice.say("police_amende", null, true); toast("Tu n'as pas marqué l'arrêt au contrôle : −5 000 F", "bad");
+        startPursuit(cp.people[0][0], cp.people[0][1], "contrôle de police non respecté", 2500);
       }
     }
   }
+  /* ---------- police pursuit: stop on the side and you pay a small fine; refuse and it doubles ---------- */
+  let police = null, policeMesh = null, sirenT = 0, sirenHi = false, holdT = 0;
+  function startPursuit(x, z, reason, fine) {
+    if (!day) return;
+    if (police && !police.done) { police.fine = Math.max(police.fine, fine); return; }
+    if (!policeMesh) { policeMesh = SB.makePolice(); scene.add(policeMesh); }
+    police = { x, z, h: Math.atan2(bus.x - x, bus.z - z), v: 4, trail: [[bus.x, bus.z]], ti: 0, reason, fine, closeT: 0, stopT: 0, farT: 0, done: false, leaveT: 0, warned: false };
+    policeMesh.visible = true;
+    SB.voice.say("police_stop", null, true); toast("Coup de sifflet ! La police te poursuit : arrête-toi sur le côté", "bad");
+  }
+  function endPursuit() { police = null; holdT = 0; if (policeMesh) policeMesh.visible = false; }
+  function pullOver(refused) {
+    const P = police, fine = refused ? P.fine * 2 : P.fine;
+    day.fines += fine; popCash("−" + fmt(fine) + " F", true);
+    if (refused) { bus.v = 0; holdT = 2.5; SB.voice.say("police_refus", null, true); toast("Refus d'obtempérer : la police te bloque · amende " + fmt(fine) + " F", "bad"); }
+    else { SB.voice.say(P.reason === "feu rouge grillé" ? "police_feu" : "police_amende", null, true); toast("Contrôle : " + P.reason + " · amende " + fmt(fine) + " F", "bad"); }
+    // the police car pulls out and drives off past the minibus
+    P.done = true; P.leaveT = 7; P.h = bus.h; P.x += Math.cos(bus.h) * 3.2; P.z -= Math.sin(bus.h) * 3.2; P.v = 3;
+  }
+  function updatePolice(dt) {
+    if (!police) return;
+    const P = police;
+    policeMesh.userData.flash(time);
+    if (P.done) {
+      P.leaveT -= dt; P.v = Math.min(15, P.v + dt * 4); P.x += Math.sin(P.h) * P.v * dt; P.z += Math.cos(P.h) * P.v * dt;
+      if (P.leaveT <= 0) endPursuit();
+    } else {
+      const last = P.trail[P.trail.length - 1];
+      if (Math.hypot(bus.x - last[0], bus.z - last[1]) > 3) P.trail.push([bus.x, bus.z]);
+      const d = Math.hypot(bus.x - P.x, bus.z - P.z), bv = Math.abs(bus.v);
+      const want = d > 60 ? 25 : d > 14 ? Math.max(bv + 5, 9) : Math.max(0, bv * 0.9 - (d < 9 ? 4 : 0));
+      P.v += (want - P.v) * Math.min(1, dt * 2.5);
+      // it follows the exact path of the minibus, so it stays on the road
+      let step = P.v * dt;
+      while (step > 0) {
+        const t = P.trail[P.ti], dx = t[0] - P.x, dz = t[1] - P.z, dd = Math.hypot(dx, dz);
+        if (dd > 0.05) { let da = Math.atan2(dx, dz) - P.h; da = Math.atan2(Math.sin(da), Math.cos(da)); P.h += da * Math.min(1, dt * 6); }
+        if (dd <= step) { P.x = t[0]; P.z = t[1]; step -= dd; if (P.ti < P.trail.length - 1) P.ti++; else break; }
+        else { P.x += (dx / dd) * step; P.z += (dz / dd) * step; step = 0; }
+      }
+      if (d < 18) {
+        P.farT = 0;
+        if (bv < 1 || foot) { P.stopT += dt; if (P.stopT > 1.5) pullOver(false); }
+        else {
+          P.stopT = 0; P.closeT += dt;
+          if (P.closeT > 4 && !P.warned) { P.warned = true; SB.voice.say("police_stop", null, true); toast("Arrête-toi, sinon l'amende sera doublée !", "bad"); }
+          if (P.closeT > 15) pullOver(true);
+        }
+      } else if (d > 230) { P.farT += dt; if (P.farT > 10) { toast("Tu as semé la police… pour cette fois !"); endPursuit(); return; } }
+      else P.farT = 0;
+      sirenT -= dt;
+      if (sirenT <= 0) { sirenT = 0.45; sirenHi = !sirenHi; tone([sirenHi ? 960 : 720], "triangle", 0.42, 0.05 * Math.max(0.15, 1 - d / 250)); }
+    }
+    policeMesh.position.set(P.x, 0.08, P.z); policeMesh.rotation.y = P.h;
+  }
+
   /* ---------- hunger ---------- */
   function updateEnergy(dt) {
     day.energy = Math.max(0, day.energy - (dt * 100) / 216);
@@ -718,7 +793,8 @@
     const ok = (x, z) => (!world.walkable || world.walkable(x, z)) && !insideVehicle(x, z);
     if (ok(nx, nz)) { foot.x = nx; foot.z = nz; } else if (ok(nx, foot.z)) foot.x = nx; else if (ok(foot.x, nz)) foot.z = nz; else foot.v = 0;
     foot.ph += Math.abs(foot.v) * dt * 3.2;
-    footMesh.position.set(foot.x, 0.08 + Math.abs(Math.sin(foot.ph)) * 0.06, foot.z); footMesh.rotation.y = foot.h;
+    footMesh.position.set(foot.x, 0.08 + (Math.abs(foot.v) > 0.2 ? Math.abs(Math.cos(foot.ph)) * 0.04 : 0), foot.z); footMesh.rotation.y = foot.h;
+    footMesh.userData.pose(Math.abs(foot.v) > 0.2 ? foot.ph : null);
     if (onboard.length) { slowT += dt; if (slowT > 20) { slowT = 0; SB.voice.say("vite"); } }
     if (engGain) engGain.gain.value = 0.02;
   }
@@ -835,6 +911,7 @@
       else if (st.waiting.length && !out) { g.fillStyle = "#f7ecd8"; g.beginPath(); g.arc(x, y, (2.5 + Math.min(8, st.waiting.length) * 0.4) * u, 0, 7); g.fill(); }
     });
     if (foot) { g.fillStyle = "#f7ecd8"; g.fillRect(tx(bus.x) - 4 * u, ty(bus.z) - 4 * u, 8 * u, 8 * u); }
+    if (police) { g.fillStyle = Math.floor(time * 6) % 2 ? "#ff3030" : "#3a6bff"; g.beginPath(); g.arc(clampX(tx(police.x), W), clampX(ty(police.z), H), 6 * u, 0, 7); g.fill(); }
     arrowAt(g, W / 2, H / 2, 8 * u, u);
   }
   function drawBigMap() {
@@ -936,7 +1013,7 @@
 
   /* ---------- hub: career, fleet, team, garage ---------- */
   async function showGarage() {
-    mode = "garage"; day = null; onboard = []; onboardDirty = true; resetFoot();
+    mode = "garage"; day = null; onboard = []; onboardDirty = true; resetFoot(); endPursuit();
     if (S.city === "bamako") await loadCity();
     else if (!world.trip || world.trip.from !== S.city) await loadRoute(SB.mali.routesFrom(S.city)[0]);
     if (world.kind === "city") setupVehicle("sotrama"); else setupVehicle("coach", world.trip);
@@ -963,7 +1040,7 @@
       const taken = new Set(S.fleet.filter((x) => x !== v && typeof x.driver === "number").map((x) => x.driver));
       return `<option value="">Personne (au garage)</option><option value="me" ${v.driver === "me" ? "selected" : ""}>Toi</option>` + drivers.filter((d) => !taken.has(d.id) || v.driver === d.id).map((d) => `<option value="${d.id}" ${v.driver === d.id ? "selected" : ""}>${esc(d.name)}${d.trained ? " (formé)" : ""}</option>`).join("");
     };
-    $("fleet").innerHTML = (S.fleet.length ? S.fleet.map((v) => `<div class="up"><div><b>${esc(v.name)}</b><span>${v.type === "car" ? "Car de 60 places" : "Sotrama de 22 places"}</span></div><label class="sel">Conduite par <select data-veh="${v.id}">${opts(v)}</select></label></div>`).join("")
+    $("fleet").innerHTML = (S.fleet.length ? S.fleet.map((v) => `<div class="up"><div><b>${esc(v.name)}</b><span>${v.type === "car" ? "Car de 60 places" : "Sotrama de 30 places"}</span></div><label class="sel">Conduite par <select data-veh="${v.id}">${opts(v)}</select></label></div>`).join("")
       : `<p class="muted">Aucun véhicule. ${S.permis ? "Tu loues la Sotrama du patron." : "Tu conduis la Sotrama du patron comme apprenti."}</p>`)
       + `<div class="row-btns">${S.permis ? `<button type="button" class="small ghost" data-buy="sotrama" ${S.savings < PRICE.sotrama ? "disabled" : ""}>Acheter une Sotrama · ${fmt(PRICE.sotrama)} F</button>` : ""}${S.permisCar ? `<button type="button" class="small ghost" data-buy="car" ${S.savings < PRICE.car ? "disabled" : ""}>Acheter un car · ${fmt(PRICE.car)} F</button>` : ""}</div>`;
     // team
@@ -1138,7 +1215,7 @@
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     const frozen = mode === "pause" || mode === "map" || mode === "panne";
     if (!frozen) time += dt;
-    if (mode === "play") { if (foot) updateWalker(dt); else { updateBus(dt); checkRedLight(dt); } updateStops(dt); updateEnergy(dt); elapsed += dt; if (day.kind === "city" && elapsed >= DAY) endDay(); }
+    if (mode === "play") { if (foot) updateWalker(dt); else { updateBus(dt); checkRedLight(dt); } updatePolice(dt); updateStops(dt); updateEnergy(dt); elapsed += dt; if (day.kind === "city" && elapsed >= DAY) endDay(); }
     else if (engGain) engGain.gain.value = 0;
     if (!frozen) { updateTraffic(dt); updatePeople(dt); }
     if (!frozen && world.water) {

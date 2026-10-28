@@ -231,6 +231,35 @@
       if (n.r) { flatDisc(junB, n.x, n.z, 0.12, n.r, n.r + RING, 40, 12); flatDisc(vergeB, n.x, n.z, 0.035, 0, n.r + RING + 4, 40, 6); }
       else { flatDisc(junB, n.x, n.z, 0.12, 0, n.disc, 24, 12); flatDisc(vergeB, n.x, n.z, 0.035, 0, n.disc + 4, 24, 6); }
     }
+    // markings: zebra crossings and stop lines at the crossroads, edge lines, roundabout rings, concrete curbs
+    const markB = Builder(), curbB = Builder(), MY = 0.14;
+    const flat = (b, pts) => quad(b, ...pts.map((q) => [q[0], MY, q[1]]), [0, 1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], WHITE);
+    nodes.forEach((n, i) => {
+      if (n.r) { flatDisc(markB, n.x, n.z, MY, n.r + 0.35, n.r + 0.55, 48, 4); flatDisc(markB, n.x, n.z, MY, n.r + RING - 0.75, n.r + RING - 0.55, 48, 4); return; }
+      if (n.nb.length < 3 || Math.abs(n.z) < 100) return;
+      for (const id of n.roads) {
+        const rd = roads[id], o = nodes[rd.a === i ? rd.b : rd.a], ux = (o.x - n.x) / rd.len, uz = (o.z - n.z) / rd.len, rx = -uz, rz = ux, hw = rd.w / 2;
+        const P = (d, k) => [n.x + ux * d + rx * k, n.z + uz * d + rz * k], d0 = n.disc + 0.8, d1 = d0 + 3;
+        for (let k = -hw + 0.5; k + 0.5 <= hw - 0.3; k += 1.0) flat(markB, [P(d0, k), P(d1, k), P(d1, k + 0.5), P(d0, k + 0.5)]);
+        flat(markB, [P(d1 + 0.7, -hw + 0.3), P(d1 + 1.1, -hw + 0.3), P(d1 + 1.1, -0.2), P(d1 + 0.7, -0.2)]);
+      }
+    });
+    for (const rd of roads) {
+      const A = nodes[rd.a], B = nodes[rd.b], hw = rd.w / 2;
+      const t0 = A.r ? rd.ta : A.deadEnd ? 0 : A.disc + 4.5, t1 = rd.len - (B.r ? rd.tb : B.deadEnd ? 0 : B.disc + 4.5);
+      if (t1 - t0 < 4) continue;
+      const P = (t, k) => [A.x + rd.dx * t + rd.nx * k, A.z + rd.dz * t + rd.nz * k];
+      for (const side of [-1, 1]) {
+        flat(markB, [P(t0, side * (hw - 0.45)), P(t1, side * (hw - 0.45)), P(t1, side * (hw - 0.3)), P(t0, side * (hw - 0.3))]);
+        const bridge = (A.z < RIVER[0] && B.z > RIVER[1]) || (B.z < RIVER[0] && A.z > RIVER[1]);
+        if (bridge || !rd.main) continue;
+        const k0 = side * hw, k1 = side * (hw + 0.3), a = P(t0, k0), b = P(t1, k0), c2 = P(t1, k1), d2 = P(t0, k1);
+        quad(curbB, [a[0], 0.22, a[1]], [b[0], 0.22, b[1]], [c2[0], 0.22, c2[1]], [d2[0], 0.22, d2[1]], [0, 1, 0], [[0, 0], [rd.len / 4, 0], [rd.len / 4, 0.1], [0, 0.1]], WHITE);
+        quad(curbB, [a[0], 0.05, a[1]], [b[0], 0.05, b[1]], [b[0], 0.22, b[1]], [a[0], 0.22, a[1]], [-rd.nx * side, 0, -rd.nz * side], [[0, 0], [rd.len / 4, 0], [rd.len / 4, 0.06], [0, 0.06]], WHITE);
+      }
+    }
+    finish(markB, std({ color: lin(0xe9e5da), roughness: 0.75, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), false);
+    finish(curbB, std({ map: texPlain, color: lin(0xc9c2b4), roughness: 0.9 }), false);
     finish(vergeB, std({ map: texSand, vertexColors: true, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }), false);
     finish(roadB, std({ map: texRoad, vertexColors: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }), false);
     finish(junB, std({ map: texPlain, vertexColors: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), false);
@@ -299,6 +328,12 @@
       const c = Math.cos(ang), s = Math.sin(ang);
       if (floors > 1 && rnd() < 0.5) { const lx = rr(-w / 4, w / 4), lz = rr(-d / 4, d / 4); boxFaces(FB[kind], cx + lx * c + lz * s, h, cz - lx * s + lz * c, 3, 3, 2.6, ang, tint, 4, 3); }
       if (rnd() < 0.45) { const lx = rr(-w / 3, w / 3), lz = rr(-d / 3, d / 3); iCyl(cx + lx * c + lz * s, h + 0.75, cz - lx * s + lz * c, 0.7, 1.5, C(pick([0x1d1d1d, 0x1d1d1d, 0x2b6cb0]), 0.1)); }
+      const DET = !ECO && kind !== "glass";
+      if (DET && floors >= 2 && rnd() < 0.7) { // roof parapet
+        for (const sx of [-1, 1]) { const p = [cx + sx * (w / 2 - 0.1) * c, cz - sx * (w / 2 - 0.1) * s]; iBox(p[0], h, p[1], 0.2, 0.5, d, tint, ang); }
+        for (const sz of [-1, 1]) { const p = [cx + sz * (d / 2 - 0.1) * s, cz + sz * (d / 2 - 0.1) * c]; iBox(p[0], h, p[1], w, 0.5, 0.2, tint, ang); }
+      }
+      if (DET && rnd() < 0.15) { const lx = rr(-w / 4, w / 4), lz = rr(-d / 4, d / 4), x = cx + lx * c + lz * s, z = cz - lx * s + lz * c; iCyl(x, h + 0.4, z, 0.04, 0.8, C(0x777777)); iCyl(x, h + 0.95, z, 0.45, 0.06, C(0xf0efe8), 0.9, ang + rr(0, 3), 0); }
       if (!front || kind === "glass") return;
       // street face: local x = front * w/2, runs along local z
       const fx = front * c, fz = -front * s;          // outward normal of the street face
@@ -310,7 +345,18 @@
         const col = C(pick(PAL.doors), 0.1);
         quad(doorB, [px - s * hwid * front, 0, pz - c * hwid * front], [px + s * hwid * front, 0, pz + c * hwid * front], [px + s * hwid * front, 2.5, pz + c * hwid * front], [px - s * hwid * front, 2.5, pz - c * hwid * front], [fx, 0, fz], [[0, 0], [1, 0], [1, 1], [0, 1]], col);
       }
+      const fo = (out, along) => [ox + fx * out + s * along, oz + fz * out + c * along];
+      if (DET && floors >= 2 && (kind === "plaster" || kind === "shutters") && rnd() < 0.5) { // balconies with iron railings
+        const t0 = rr(-d / 5, d / 5), len = Math.min(3.4, d * 0.5);
+        for (let f = 1; f < floors; f++) { let p = fo(0.55, t0); iBox(p[0], f * 3, p[1], 1.1, 0.14, len, tint, ang); p = fo(1.07, t0); iBox(p[0], f * 3 + 0.14, p[1], 0.06, 0.9, len, C(0x2f2f2f), ang); }
+      }
+      if (DET) for (let f = 0; f < floors; f++) if (rnd() < 0.3) { const p = fo(0.2, rr(-d / 3, d / 3)); iBox(p[0], f * 3 + (f ? 0.6 : 2.0), p[1], 0.36, 0.48, 0.78, C(0xe8e8e4), ang); }
       if (rnd() < 0.55) {
+        if (DET && rnd() < 0.6) { // corrugated awning over the shop
+          const len = Math.min(d * 0.8, 6), col = C(pick([0x9aa3a8, 0x8a5a3a, 0x2e6fb0, 0xc0392b, 0x1f8a4c, 0x9aa3a8]), 0.1);
+          let p = fo(0.95, 0); iBox(p[0], 2.42, p[1], 1.9, 0.07, len, col, ang);
+          for (const e of [-1, 1]) { p = fo(1.8, e * (len / 2 - 0.2)); iCyl(p[0], 1.21, p[1], 0.04, 2.42, C(0x555555)); }
+        }
         const i = Math.floor(rnd() * TX.SIGNS.length), u0 = (i % 2) * 0.5, v1 = 1 - Math.floor(i / 2) * 0.25, v0 = v1 - 0.25;
         const half = Math.min(d * 0.42, 3.6), y0 = 2.55, y1 = 3.45;
         const px = ox + fx * 0.05, pz = oz + fz * 0.05;
@@ -642,6 +688,7 @@
             const wall = rnd() < 0.18;
             if (wall) {
               boxFaces(FB.banco, cx + rd.nx * side * (-bd / 2 + 0.3), 0, cz + rd.nz * side * (-bd / 2 + 0.3), 0.4, bw, 2.3, ang, C(0xffffff, 0.1), 4, 3);
+              iBox(cx + rd.nx * side * (-bd / 2 + 0.05), 0, cz + rd.nz * side * (-bd / 2 + 0.05), 0.12, 2.1, Math.min(2.8, bw - 1.5), C(pick([0x2e6fb0, 0x1f8a4c, 0xa23a2a, 0x3d3d3d, 0xe2b31d]), 0.1), ang);
               if (rnd() < 0.7) tree(cx, cz, pick(["mango", "neem", "karite"]));
               markRect(cx, cz, bd, bw, ang);
             } else {

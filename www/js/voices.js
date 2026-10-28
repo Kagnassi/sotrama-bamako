@@ -31,6 +31,8 @@
     ["depart_car", "Apprenti", "Passagers pour {dest}, on embarque !"],
     ["arrivee_car", "Chauffeur", "Nous sommes arrivés à {dest}. Merci d'avoir voyagé avec Kagnassi Transport !"],
     ["police_feu", "Policier", "Feu rouge, chauffeur ! Garez-vous. Amende !"],
+    ["police_stop", "Policier", "Police ! Chauffeur, rangez-vous sur le côté !"],
+    ["police_refus", "Policier", "Vous avez refusé de vous arrêter ! L'amende est doublée !"],
     ["faim", "Apprenti", "Patron, on n'a pas encore mangé ! On s'arrête au maquis ?"],
     ["vendeuse", "Vendeuse", "Jii suma ! Eau fraîche, beignets, mangues !"],
     ["bon_appetit", "Vendeuse", "I ni ce ! Bon appétit, chauffeur !"],
