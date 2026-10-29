@@ -5,6 +5,7 @@
 
   SB.buildWorld = function (scene, opts) {
     const quality = (opts && opts.quality) || "haute";
+    const keep = [];   // spots kept free of parked cars and stalls, and obstacles on the shoulders (posts, trees, stalls)
     let seed = 20261028;
     const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     const rr = (a, b) => a + (b - a) * rnd();
@@ -23,44 +24,44 @@
       if (byKey[k] === undefined) { byKey[k] = nodes.length; nodes.push({ x, z, r: ROUND[k] || 0, nb: [], roads: [] }); }
       return byKey[k];
     }
-    function R(a, b, w) {
+    function R(a, b, w, name) {
       if (nodes[a].nb.includes(b)) return;
-      const id = roads.length; roads.push({ a, b, w });
+      const id = roads.length; roads.push({ a, b, w, name: name || "" });
       nodes[a].nb.push(b); nodes[b].nb.push(a); nodes[a].roads.push(id); nodes[b].roads.push(id);
     }
-    const path = (pts, w) => { for (let i = 1; i < pts.length; i++) R(N(pts[i - 1][0], pts[i - 1][1]), N(pts[i][0], pts[i][1]), w); };
+    const path = (pts, w, name) => { for (let i = 1; i < pts.length; i++) R(N(pts[i - 1][0], pts[i - 1][1]), N(pts[i][0], pts[i][1]), w, name); };
     // rive gauche: centre-ville grid
     const XN = [-360, -240, -120, 0, 120, 240, 360], ZN = [-90, -190, -290, -390, -490];
-    for (const z of ZN) for (let i = 1; i < XN.length; i++) R(N(XN[i - 1], z), N(XN[i], z), z === -90 || z === -290 ? 15 : 11);
-    for (const x of XN) for (let j = 1; j < ZN.length; j++) R(N(x, ZN[j - 1]), N(x, ZN[j]), x === 0 ? 15 : 11);
+    for (const z of ZN) for (let i = 1; i < XN.length; i++) R(N(XN[i - 1], z), N(XN[i], z), z === -90 || z === -290 ? 15 : 11, z === -90 ? "Avenue du Fleuve" : z === -290 ? "Avenue Modibo Keïta" : "");
+    for (const x of XN) for (let j = 1; j < ZN.length; j++) R(N(x, ZN[j - 1]), N(x, ZN[j]), x === 0 ? 15 : 11, x === 0 ? "Boulevard de l'Indépendance" : "");
     // rive droite grid
     const XS = [-300, -180, -60, 60, 180, 300, 420], ZS = [90, 190, 290, 390];
-    for (const z of ZS) for (let i = 1; i < XS.length; i++) R(N(XS[i - 1], z), N(XS[i], z), z === 90 || z === 290 ? 15 : 11);
-    for (const x of XS) for (let j = 1; j < ZS.length; j++) R(N(x, ZS[j - 1]), N(x, ZS[j]), x === 60 ? 15 : 11);
+    for (const z of ZS) for (let i = 1; i < XS.length; i++) R(N(XS[i - 1], z), N(XS[i], z), z === 90 || z === 290 ? 15 : 11, z === 90 ? "Avenue de l'OUA" : z === 290 ? "Avenue de l'Unité Africaine" : "");
+    for (const x of XS) for (let j = 1; j < ZS.length; j++) R(N(x, ZS[j - 1]), N(x, ZS[j]), x === 60 ? 15 : 11, x === 60 ? "Boulevard du Peuple" : "");
     // three bridges over the Niger
-    path([[-120, -90], [-180, 90]], 15); path([[120, -90], [60, 90]], 15); path([[360, -90], [420, 90]], 15);
+    path([[-120, -90], [-180, 90]], 15, "Pont Roi Fahd"); path([[120, -90], [60, 90]], 15, "Pont des Martyrs"); path([[360, -90], [420, 90]], 15, "Pont de l'Amitié sino-malienne");
     // west and north-west districts
     path([[-360, -190], [-560, -190], [-720, -250]], 11);
     path([[-360, -390], [-560, -430], [-560, -190]], 11);
     path([[-560, -430], [-420, -560]], 11);
-    path([[-240, -390], [-420, -560], [-560, -700]], 15);
-    path([[-360, -90], [-560, -90], [-760, -110]], 15);
+    path([[-240, -390], [-420, -560], [-560, -700]], 15, "Route de Sébénikoro");
+    path([[-360, -90], [-560, -90], [-760, -110]], 15, "Route de Guinée");
     path([[-560, -90], [-560, -190]], 11);
-    path([[0, -490], [0, -640]], 15);
+    path([[0, -490], [0, -640]], 15, "Route de Kati");
     // east and north-east
-    path([[360, -390], [540, -480], [680, -640]], 15);
+    path([[360, -390], [540, -480], [680, -640]], 15, "Route de Koulikoro");
     path([[360, -190], [560, -200], [760, -150]], 11);
     path([[560, -200], [540, -480]], 11);
-    path([[360, -90], [560, -90], [760, -80]], 15);
+    path([[360, -90], [560, -90], [760, -80]], 15, "Route de Sotuba");
     path([[560, -90], [560, -200]], 11);
     // south
-    path([[-300, 290], [-500, 330], [-660, 470]], 15);
-    path([[-300, 90], [-500, 90], [-720, 110]], 15);
+    path([[-300, 290], [-500, 330], [-660, 470]], 15, "Route de Kalaban");
+    path([[-300, 90], [-500, 90], [-720, 110]], 15, "Route de Baco Djicoroni");
     path([[-500, 90], [-500, 330]], 11);
-    path([[180, 390], [300, 560], [400, 780]], 15);
+    path([[180, 390], [300, 560], [400, 780]], 15, "Route de l'Aéroport");
     path([[300, 390], [300, 560]], 11);
     path([[420, 190], [620, 230], [780, 260]], 11);
-    path([[420, 90], [620, 90], [780, 100]], 15);
+    path([[420, 90], [620, 90], [780, 100]], 15, "Route de Ségou");
     path([[620, 90], [620, 230]], 11);
 
     // derived geometry
@@ -150,6 +151,16 @@
     // solid ground (walls), used when the driver walks
     const solid = new Uint8Array(G.w * G.h);
     const markSolid = (cx, cz, w, d, ang) => rectPoints(cx, cz, w, d, ang, 0.3, (x, z) => { const c = cellOf(x, z); if (c >= 0) solid[c] = 1; });
+    // 2 = asphalt, 1 = the sandy shoulder (slow), 0 = no way (wall, river, tree, stall, pole)
+    function drivable(x, z) {
+      if (inRoad(x, z)) return 2;
+      if (z > RIVER[0] - 4 && z < RIVER[1] + 4) return 0;
+      const nr = nearestRoad(x, z, 8); if (!nr || nr.d > 4.2) return 0;
+      const c = cellOf(x, z); if (c >= 0 && solid[c]) return 0;
+      for (const st of stops) if (Math.abs(st.sx - x) < 3.3 && Math.abs(st.sz - z) < 3.3) return 0;
+      for (const [kx, kz, r] of keep) if (Math.abs(kx - x) < r * 0.45 && Math.abs(kz - z) < r * 0.45) return 0;
+      return 1;
+    }
     function walkable(x, z) {
       if (z > RIVER[0] + 2 && z < RIVER[1] - 2 && !inRoad(x, z)) return false;
       const c = cellOf(x, z);
@@ -265,7 +276,7 @@
     finish(junB, std({ map: texPlain, vertexColors: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), false);
 
     /* ---- instanced helpers (trees, poles, small objects) ---- */
-    const INST = { box: [], cyl: [], cone: [], ico: [], trunk: [], stem: [] };
+    const INST = { box: [], cyl: [], cone: [], ico: [], trunk: [], stem: [], canopy: [] };
     const ECO = quality === "eco";
     const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
     const M = (x, y, z, sx, sy, sz, rx, ry, rz) => { _e.set(rx || 0, ry || 0, rz || 0); _q.setFromEuler(_e); return new THREE.Matrix4().compose(_p.set(x, y, z), _q, _s.set(sx, sy, sz)); };
@@ -275,9 +286,20 @@
     const iCone = (x, y0, z, r, h, col) => INST.cone.push({ m: M(x, y0 + h / 2, z, r, h, r), c: col });
     const iIco = (x, y, z, r, col, sy) => INST.ico.push({ m: M(x, y, z, r, r * (sy || 1), r, 0, rnd() * 3, 0), c: col });
     // one InstancedMesh per 350 m tile, with its own bounding sphere so off-screen tiles are skipped
-    function flushInst(geo, list, flat, shadows) {
+    // a leafy crown: a few clustered blobs, darker underneath (one instance per tree)
+    function canopyGeo() {
+      const pos = [];
+      for (const [x, y, z, r] of [[0, 0, 0, 1], [0.55, 0.15, 0.25, 0.72], [-0.52, 0.1, -0.3, 0.75], [0.05, 0.42, -0.4, 0.62]]) {
+        const g = new THREE.IcosahedronGeometry(r, 0); g.scale(1, 0.8, 1); g.translate(x, y, z); pos.push(...g.attributes.position.array);
+      }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals();
+      const col = []; for (let i = 0; i < pos.length; i += 3) { const v = 0.55 + 0.45 * Math.max(0, Math.min(1, (pos[i + 1] + 0.8) / 1.5)); col.push(v, v, v * 0.94); }
+      geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+      return geo;
+    }
+    function flushInst(geo, list, flat, shadows, opts) {
       if (!list.length) return;
-      const mat = std({ flatShading: !!flat }), TILE = list.length > 1500 ? 600 : 1e6, tiles = new Map();
+      const mat = std(Object.assign({ flatShading: !!flat }, opts || {})), TILE = list.length > 1500 ? 600 : 1e6, tiles = new Map();
       for (const it of list) {
         const e = it.m.elements, k = Math.floor(e[12] / TILE) + "," + Math.floor(e[14] / TILE);
         if (!tiles.has(k)) tiles.set(k, []); tiles.get(k).push(it);
@@ -377,9 +399,7 @@
       const big = kind === "mango", h = big ? rr(2.6, 3.6) : rr(2.2, 3.4), tr = big ? 0.32 : 0.22;
       INST.stem.push({ m: M(x, h / 2, z, 2 * tr, h, 2 * tr), c: C(PAL.trunk, 0.2) });
       const r = big ? rr(3.4, 4.8) : rr(2.2, 3.2), col = big ? PAL.mango : kind === "karite" ? PAL.karite : PAL.neem;
-      iIco(x, h + r * 0.55, z, r, C(col, 0.25), 0.78);
-      iIco(x + rr(-1.4, 1.4), h + r * 0.95, z + rr(-1.4, 1.4), r * 0.68, C(col, 0.3), 0.8);
-      if (big) { const ex = x + rr(-2, 2), ez = z + rr(-2, 2), ec = C(col, 0.25); if (!ECO) iIco(ex, h + r * 0.5, ez, r * 0.7, ec, 0.75); }
+      INST.canopy.push({ m: M(x, h + r * 0.5, z, r, r * (big ? 0.9 : 0.85), r, 0, rnd() * 6.28, 0), c: C(col, 0.22) });
     }
 
     /* ---- stops and fuel stations (placed before the buildings) ---- */
@@ -479,6 +499,8 @@
         const top = new THREE.Mesh(new THREE.IcosahedronGeometry(1.8, 0), std({ color: lin(0xd8a634), roughness: 0.35, metalness: 0.6, flatShading: true })); top.position.set(n.x, 29.5, n.z); scene.add(top);
       } else if (kind === "obelisk") {
         const ob = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 1.6, 16, 4), std({ color: lin(0xe9dcc4), flatShading: true })); ob.position.set(n.x, 8.3, n.z); ob.rotation.y = Math.PI / 4; ob.castShadow = true; scene.add(ob);
+      } else if (kind === "plain") {
+        // the monument itself is built by its own function
       } else if (kind === "arch") {
         for (const o of [-5, 5]) iBox(n.x + o, 0.3, n.z, 1.6, 10, 1.6, C(0xefe6d6));
         iBox(n.x, 10.3, n.z, 12, 1.6, 1.8, C(0x1f8a4c));
@@ -486,9 +508,68 @@
         for (let k = 0; k < 5; k++) tree(n.x + rr(-n.r / 2, n.r / 2), n.z + rr(-n.r / 2, n.r / 2), "neem");
       }
     }
-    island(nodes[byKey["0,-290"]], "column"); island(nodes[byKey["240,-190"]], "obelisk"); island(nodes[byKey["60,190"]], "arch");
-    island(nodes[byKey["-240,-390"]], "garden"); island(nodes[byKey["300,290"]], "garden");
-    landmarks.push({ name: "Monument", x: 0, z: -290 });
+    const label = (name, x, y, z, w) => { const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.roadSign(name.toUpperCase(), null, "#6b4a2b") })); sg.position.set(x, y, z); sg.scale.set(w || 8, 3, 1); scene.add(sg); };
+    const solidMesh = (geo, mat, x, y, z, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; scene.add(m); return m; };
+    const gold = std({ color: lin(0xd8a634), roughness: 0.3, metalness: 0.75 }), white = std({ color: lin(0xf3eee4), roughness: 0.8 });
+    // Monument de l'Indépendance: a tall tower in the Sudanese style, with its wooden pickets, and the flag of Mali
+    (function (n) {
+      island(n, "plain");
+      iBox(n.x, 0.3, n.z, 13, 1, 13, C(0xefe6d6)); iBox(n.x, 1.3, n.z, 9.5, 1, 9.5, C(0xe7dcc8));
+      for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { iBox(n.x + ox * 5.6, 0.3, n.z + oz * 5.6, 1.2, 4, 1.2, C(0xd9c7a6)); iCone(n.x + ox * 5.6, 4.3, n.z + oz * 5.6, 0.8, 1.4, C(0xd9c7a6)); }
+      solidMesh(new THREE.CylinderGeometry(1.5, 3.2, 26, 4), std({ color: lin(0xf1e6d2), flatShading: true }), n.x, 15.3, n.z, Math.PI / 4);
+      for (let y = 5; y < 27; y += 3) for (const [dx, dz] of [[1, 0], [0, 1]]) iCyl(n.x, y, n.z, 0.09, 7.2 - y * 0.16, C(0x6b4426), dz ? Math.PI / 2 : 0, 0, dx ? Math.PI / 2 : 0);
+      solidMesh(new THREE.ConeGeometry(1.6, 3.2, 4), std({ color: lin(0xe3d2b4), flatShading: true }), n.x, 29.9, n.z, Math.PI / 4);
+      iCyl(n.x + 8, 9, n.z - 6, 0.12, 18, C(0xcfcfcf));
+      const flag = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 3), new THREE.MeshStandardMaterial({ map: TX.flagMali(), side: THREE.DoubleSide, roughness: 0.8 })); flag.position.set(n.x + 10.3, 16.4, n.z - 6); scene.add(flag);
+      label("Monument de l'Indépendance", n.x, 34, n.z, 11);
+      landmarks.push({ name: "Monument de l'Indépendance", x: n.x, z: n.z, kind: "monument" });
+    })(nodes[byKey["0,-290"]]);
+    // Monument Al Qoods (Hamdallaye): a white tower crowned with a golden dome
+    (function (n) {
+      island(n, "plain");
+      solidMesh(new THREE.CylinderGeometry(4.5, 5, 1.6, 8), white, n.x, 1.0, n.z);
+      solidMesh(new THREE.BoxGeometry(3.6, 18, 3.6), std({ map: facades.plaster, color: lin(0xf6f2ea) }), n.x, 10.8, n.z);
+      solidMesh(new THREE.CylinderGeometry(2.4, 2.4, 1.2, 8), white, n.x, 20.4, n.z);
+      solidMesh(new THREE.SphereGeometry(2.2, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), gold, n.x, 21, n.z);
+      solidMesh(new THREE.ConeGeometry(0.25, 1.6, 8), gold, n.x, 23.9, n.z);
+      label("Monument Al Qoods", n.x, 27, n.z, 9);
+      landmarks.push({ name: "Monument Al Qoods", x: n.x, z: n.z, kind: "monument" });
+    })(nodes[byKey["-240,-390"]]);
+    // Monument de la Paix: an arch with a white dove
+    (function (n) {
+      island(n, "plain");
+      for (const o of [-5, 5]) iBox(n.x + o, 0.3, n.z, 1.6, 10, 1.6, C(0xefe6d6));
+      iBox(n.x, 10.3, n.z, 12, 1.6, 1.8, C(0x1f8a4c));
+      const dove = new THREE.Group(), wm = std({ color: lin(0xfafaf6), roughness: 0.6 });
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 8), wm); body.scale.set(0.7, 0.7, 1.4); dove.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), wm); head.position.set(0, 0.5, 1.2); dove.add(head);
+      for (const s2 of [-1, 1]) { const wing = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 1.0), wm); wing.position.set(s2 * 1.4, 0.5, 0); wing.rotation.z = s2 * 0.45; dove.add(wing); }
+      dove.position.set(n.x, 13, n.z); dove.rotation.y = 0.6; scene.add(dove);
+      label("Monument de la Paix", n.x, 17, n.z, 9);
+      landmarks.push({ name: "Monument de la Paix", x: n.x, z: n.z, kind: "monument" });
+    })(nodes[byKey["60,190"]]);
+    // Tour de l'Afrique: a slender tower holding a golden map of Africa
+    (function (n) {
+      island(n, "plain");
+      for (const o of [-1.4, 1.4]) solidMesh(new THREE.BoxGeometry(1, 16, 1.4), white, n.x + o, 8.3, n.z);
+      const AF = [[-0.17, 0.95], [0.1, 0.98], [0.3, 0.9], [0.5, 0.78], [0.62, 0.62], [0.88, 0.45], [0.98, 0.33], [0.82, 0.22], [0.62, 0.08], [0.55, -0.15], [0.6, -0.35], [0.48, -0.55], [0.32, -0.82], [0.18, -0.95], [0.05, -0.85], [-0.02, -0.55], [-0.08, -0.25], [-0.2, -0.05], [-0.35, 0.1], [-0.6, 0.15], [-0.82, 0.25], [-0.95, 0.45], [-0.85, 0.68], [-0.6, 0.8], [-0.4, 0.9]];
+      const sh = new THREE.Shape(); AF.forEach(([x, y], i) => (i ? sh.lineTo(x * 4, y * 4) : sh.moveTo(x * 4, y * 4)));
+      const africa = solidMesh(new THREE.ExtrudeGeometry(sh, { depth: 0.6, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 1 }), gold, n.x, 20.5, n.z - 0.3);
+      africa.userData.spin = true;
+      label("Tour de l'Afrique", n.x, 26.5, n.z, 8);
+      landmarks.push({ name: "Tour de l'Afrique", x: n.x, z: n.z, kind: "monument" });
+    })(nodes[byKey["300,290"]]);
+    island(nodes[byKey["240,-190"]], "obelisk");
+    // Tour BCEAO: the tallest building of Bamako, glass and earth-coloured fins with pickets on top
+    (function () {
+      const cx = -300, cz = -140; reserve(cx, cz, 34, 34);
+      boxFaces(FB.glass, cx, 0, cz, 18, 18, 62, 0.785, C(0xffffff, 0.05), 4, 3);
+      for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const c = Math.cos(0.785), s = Math.sin(0.785), lx = ox * 9, lz = oz * 9; boxFaces(FB.banco, cx + lx * c + lz * s, 0, cz - lx * s + lz * c, 3, 3, 66, 0.785, C(0xc98a52), 4, 3); }
+      for (let k = 0; k < 16; k++) { const a = (k / 16) * Math.PI * 2; iCone(cx + Math.cos(a) * 8, 62, cz + Math.sin(a) * 8, 0.6, 3.5, C(0xb87a46)); }
+      boxFaces(FB.plaster, cx, 0, cz + 14, 26, 8, 6, 0, C(0xe9e0cf), 4, 3);
+      label("Tour BCEAO", cx, 72, cz, 7);
+      landmarks.push({ name: "Tour BCEAO", x: cx, z: cz, kind: "monument" });
+    })();
     // ACI 2000 towers
     for (const [x, z, f] of [[-470, -150, 9], [-430, -118, 7], [-510, -118, 6], [-400, -160, 5]]) { reserve(x, z, 16, 16); boxFaces(FB.glass, x, 0, z, 14, 14, f * 3 + 0.6, 0.12, C(0xffffff, 0.08), 4, 3); }
     landmarks.push({ name: "ACI 2000", x: -460, z: -140 });
@@ -540,7 +621,28 @@
       finish(deck, std({ map: texRoof, vertexColors: true }), true);
       for (const side of [-1, 1]) iBox(cx + rd.nx * side * (rd.w / 2 + 3.6), 0.03, cz + rd.nz * side * (rd.w / 2 + 3.6), 0.4, 1.1, len, C(0xd8d0c0), ang);
       for (let t = -len / 2 + 12; t < len / 2 - 6; t += 18) iBox(cx + rd.dx * t, -4, cz + rd.dz * t, rd.w - 2, 2.8, 3, C(0x9c9488), ang);
+      for (let t = -len / 2 + 6; t < len / 2; t += 20) for (const side of [-1, 1]) {
+        const x = cx + rd.dx * t + rd.nx * side * (rd.w / 2 + 3.4), z = cz + rd.dz * t + rd.nz * side * (rd.w / 2 + 3.4);
+        iCyl(x, 4.1, z, 0.12, 8, C(0x8a8f94)); iBox(x - rd.nx * side * 0.9, 8, z - rd.nz * side * 0.9, 1.9, 0.18, 0.35, C(0x8a8f94), Math.atan2(rd.nx, rd.nz)); iBox(x - rd.nx * side * 1.7, 7.75, z - rd.nz * side * 1.7, 0.5, 0.12, 0.3, C(0xfff2c0), Math.atan2(rd.nx, rd.nz));
+      }
+      for (const e of [-1, 1]) { const t = e * (len / 2 + 8), sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.roadSign(rd.name.toUpperCase(), null, "#1d7f46") })); sg.position.set(cx + rd.dx * t + rd.nx * (rd.w / 2 + 5), 4.4, cz + rd.dz * t + rd.nz * (rd.w / 2 + 5)); sg.scale.set(9, 2.4, 1); scene.add(sg); }
+      landmarks.push({ name: rd.name, x: cx, z: cz, kind: "bridge" });
     }
+    // street name plates at the crossroads
+    const STREET = [...new Set(roads.map((r) => r.name).filter((n) => n && !n.startsWith("Pont")))];
+    const streetB = Builder();
+    for (const rd of roads) {
+      if (!rd.name || rd.name.startsWith("Pont") || rd.len < 60) continue;
+      const A = nodes[rd.a]; if (A.r || A.nb.length < 3) continue;
+      const row = STREET.indexOf(rd.name), v1 = 1 - row / 16, v0 = v1 - 1 / 16, t = A.disc + 2.5, off = rd.w / 2 + 1.7;
+      const px = A.x + rd.dx * t + rd.nx * off, pz = A.z + rd.dz * t + rd.nz * off;
+      iCyl(px, 1.6, pz, 0.05, 3.2, C(0x555555)); keep.push([px, pz, 2]);
+      for (const s2 of [1, -1]) { // both faces
+        const a = [px - rd.dx * 1.3, pz - rd.dz * 1.3], b = [px + rd.dx * 1.3, pz + rd.dz * 1.3], o = 0.03 * s2;
+        quad(streetB, [a[0] + rd.nx * o, 2.9, a[1] + rd.nz * o], [b[0] + rd.nx * o, 2.9, b[1] + rd.nz * o], [b[0] + rd.nx * o, 3.25, b[1] + rd.nz * o], [a[0] + rd.nx * o, 3.25, a[1] + rd.nz * o], [rd.nx * s2, 0, rd.nz * s2], s2 > 0 ? [[0, v0], [1, v0], [1, v1], [0, v1]] : [[1, v0], [0, v0], [0, v1], [1, v1]], WHITE);
+      }
+    }
+    finish(streetB, std({ map: TX.streetSigns(STREET), roughness: 0.6 }), false);
 
     /* ---- hospitals ---- */
     function hospital(cx, cz, ang, name, floors) {
@@ -566,7 +668,7 @@
     hospital(50, -580, -Math.PI / 2, "Point G", 4);
 
     /* ---- restaurants, maquis and dibiteries ---- */
-    const food = [], vendors = [], keep = [];
+    const food = [], vendors = [];
     const kept = (x, z) => keep.some(([kx, kz, r]) => Math.abs(kx - x) < r && Math.abs(kz - z) < r);
     const RESTOS = [
       ["Le Baobab", "restaurant"], ["La Paillote", "maquis"], ["Chez Fati", "dibiterie"], ["Le Fleuve", "restaurant"],
@@ -630,7 +732,8 @@
     lampMesh.frustumCulled = false; scene.add(lampMesh);
 
     /* ---- police checks in town ---- */
-    const checkpoints = [];
+    const checkpoints = [], policeCars = [], policeMotos = [];
+    for (const L of lights) if (L.cop) { const N = nodes[L.node]; policeMotos.push({ x: L.cop[0] + (L.cop[0] - N.x) * 0.15, z: L.cop[1] + (L.cop[1] - N.z) * 0.15, ang: L.cop[2] + 1.2 }); }
     const longMain = roads.filter((rd) => rd.main && rd.len > 100);
     for (let tries = 0; tries < 300 && checkpoints.length < 4; tries++) {
       const rd = pick(longMain), A = nodes[rd.a], t = rr(40, rd.len - 40);
@@ -639,8 +742,8 @@
       if (stops.some((st) => Math.hypot(st.zx - x, st.zz - z) < 70) || checkpoints.some((c) => Math.hypot(c.zx - x, c.zz - z) < 350) || lights.some((l) => Math.hypot(l.x - x, l.z - z) < 50)) continue;
       const side = rnd() < 0.5 ? -1 : 1, nx = rd.nx * side, nz = rd.nz * side, ang = Math.atan2(rd.dx, rd.dz), off = rd.w / 2 + 2.4;
       const vx = x + nx * off, vz = z + nz * off;
-      iBox(vx, 0.4, vz, 1.9, 1.0, 4.8, C(0x22384f), ang); iBox(vx + rd.dx * 0.9, 1.4, vz + rd.dz * 0.9, 1.8, 0.9, 2.2, C(0x22384f), ang);
-      iBox(vx + rd.dx * 0.9, 2.35, vz + rd.dz * 0.9, 1.2, 0.12, 0.3, C(0x3d7fd8), ang);
+      policeCars.push({ x: vx, z: vz, ang }); policeMotos.push({ x: vx - rd.dx * 6 + nx * 0.4, z: vz - rd.dz * 6 + nz * 0.4, ang: ang + 0.5 });
+      iBox(vx - rd.dx * 9, 0, vz - rd.dz * 9, 1.6, 2.4, 1.6, C(0xe8e2d4), ang); iBox(vx - rd.dx * 9, 2.4, vz - rd.dz * 9, 2, 0.15, 2, C(0x2b3a5c), ang);
       for (const a of [-9, -6, 6, 9]) iCone(x + rd.dx * a + nx * (rd.w / 2 - 0.5), 0.08, z + rd.dz * a + nz * (rd.w / 2 - 0.5), 0.3, 0.8, C(0xff6a1a));
       const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.roadSign("POLICE", "CONTRÔLE", "#2b3a5c") })); sg.position.set(vx - rd.dx * 4, 3.2, vz - rd.dz * 4); sg.scale.set(4.2, 1.6, 1); scene.add(sg);
       keep.push([vx, vz, 6]);
@@ -648,10 +751,55 @@
     }
 
     /* ---- street vendors along the main roads ---- */
+    const at2 = (x, z, rd, along, across) => [x + rd.dx * along + rd.nx * across, z + rd.dz * along + rd.nz * across];
+    function goods(kind, x, z, rd) {
+      const T = 0.82;
+      if (kind === "pain") { // baguettes laid on the table
+        for (let j = 0; j < 7; j++) { const p = at2(x, z, rd, -0.75 + j * 0.25, rr(-0.05, 0.05)); iCyl(p[0], T + 0.06 + (j % 2) * 0.04, p[1], 0.05, 0.75, C(0xd49a4c, 0.12), 0, Math.atan2(rd.dx, rd.dz), Math.PI / 2); }
+      } else if (kind === "fruits") { // mango pyramids
+        for (const a of [-0.55, 0.45]) for (let row = 0; row < 3; row++) for (let j = 0; j < 4 - row; j++) for (let q = 0; q < 3 - row; q++) {
+          const p = at2(x, z, rd, a + (j - (3 - row) / 2) * 0.14, (q - (2 - row) / 2) * 0.14); iIco(p[0], T + 0.08 + row * 0.11, p[1], 0.085, C(pick([0xf39c12, 0xe67e22, 0x9bbf3a]), 0.12), 0.85);
+        }
+      } else if (kind === "eau") { // a basin of water sachets
+        let p = at2(x, z, rd, -0.4, 0); iCyl(p[0], T + 0.08, p[1], 0.36, 0.16, C(0x2e6fb0));
+        for (let j = 0; j < 7; j++) { const q = at2(x, z, rd, -0.4 + rr(-0.2, 0.2), rr(-0.2, 0.2)); iBox(q[0], T + 0.16 + j * 0.012, q[1], 0.16, 0.035, 0.22, C(0xe8f6ff), rr(0, 3)); }
+        p = at2(x, z, rd, 0.5, 0); iBox(p[0], T, p[1], 0.45, 0.4, 0.45, C(0xf1f1ec), Math.atan2(rd.dx, rd.dz));
+      } else if (kind === "beignets") { // a tray of fried dough balls
+        const p = at2(x, z, rd, 0, 0); iCyl(p[0], T + 0.02, p[1], 0.45, 0.04, C(0xc8c8c8));
+        for (let j = 0; j < 14; j++) { const q = at2(x, z, rd, rr(-0.35, 0.35), rr(-0.3, 0.3)); iIco(q[0], T + 0.08, q[1], 0.06, C(0xb8742a, 0.15), 0.8); }
+      } else if (kind === "brochettes") { // a small grill with skewers
+        const p = at2(x, z, rd, 0, 0); iBox(p[0], T, p[1], 0.5, 0.16, 1.2, C(0x1b1b1b), Math.atan2(rd.dx, rd.dz));
+        for (let j = 0; j < 6; j++) { const q = at2(x, z, rd, -0.45 + j * 0.18, 0); iCyl(q[0], T + 0.2, q[1], 0.035, 0.42, C(0x7a3a1c, 0.15), 0, Math.atan2(rd.dx, rd.dz), Math.PI / 2); }
+      } else if (kind === "cigarettes") { // a small glass box of cigarette packs and jars of sweets
+        let p = at2(x, z, rd, -0.35, 0); iBox(p[0], T, p[1], 0.5, 0.32, 0.7, C(0xd8e6ea), Math.atan2(rd.dx, rd.dz));
+        for (let j = 0; j < 8; j++) { const q = at2(x, z, rd, -0.6 + (j % 4) * 0.16, (j < 4 ? -0.1 : 0.1)); iBox(q[0], T + 0.32, q[1], 0.09, 0.05, 0.13, C(pick([0xf4f4f0, 0xc0392b, 0x2e6fb0, 0xe2b31d]), 0.05), Math.atan2(rd.dx, rd.dz)); }
+        for (const a of [0.35, 0.65]) { p = at2(x, z, rd, a, 0); iCyl(p[0], T + 0.13, p[1], 0.1, 0.26, C(pick([0xe74c3c, 0xf39c12, 0x27ae60]), 0.1)); }
+      } else { // groundnuts in enamel bowls
+        for (const a of [-0.6, 0, 0.6]) { const p = at2(x, z, rd, a, 0); iCyl(p[0], T + 0.04, p[1], 0.16, 0.08, C(0xf2f0ea)); iCone(p[0], T + 0.08, p[1], 0.14, 0.12, C(0xb88a4a, 0.1)); }
+      }
+    }
+    // a small shop kiosk: shelves of goods, a counter and a painted sign
+    function kiosk(x, z, ang, nx, nz, rd) {
+      const col = C(pick([0x2e6fb0, 0x1f8a4c, 0xe2b31d, 0xc0392b, 0xf1ece0]), 0.08), O = (out, along) => [x + nx * out + rd.dx * along, z + nz * out + rd.dz * along];
+      let p = O(0.75, 0); iBox(p[0], 0, p[1], 0.12, 2.4, 2.4, col, ang);
+      for (const a of [-1.2, 1.2]) { p = O(0, a); iBox(p[0], 0, p[1], 1.6, 2.4, 0.1, col, ang); }
+      p = O(0, 0); iBox(p[0], 2.4, p[1], 1.9, 0.12, 2.7, C(0x9aa3a8), ang);
+      p = O(-0.55, 0); iBox(p[0], 0, p[1], 0.4, 1.0, 2.2, C(0xf2efe6), ang);
+      for (const y of [1.15, 1.6, 2.05]) { p = O(0.55, 0); iBox(p[0], y, p[1], 0.3, 0.04, 2.2, C(0x8a6a48), ang); for (let j = 0; j < 7; j++) { const q = O(0.55, -0.95 + j * 0.31); iBox(q[0], y + 0.04, q[1], 0.18, rr(0.15, 0.28), 0.18, C(pick([0xc0392b, 0xe2b31d, 0x2e6fb0, 0x1f8a4c, 0xf39c12, 0xf4f4f0]), 0.1), ang); } }
+      // sign above the opening, readable from the road
+      const i = pick([0, 3, 4]), u0 = (i % 2) * 0.5, v1 = 1 - Math.floor(i / 2) * 0.25, v0 = v1 - 0.25, Rx = -nz, Rz = nx, c = O(-0.82, 0);
+      const L = [c[0] - Rx * 1.1, c[1] - Rz * 1.1], R = [c[0] + Rx * 1.1, c[1] + Rz * 1.1];
+      quad(signB, [L[0], 2.5, L[1]], [R[0], 2.5, R[1]], [R[0], 2.98, R[1]], [L[0], 2.98, L[1]], [-nx, 0, -nz], [[u0, v0], [u0 + 0.5, v0], [u0 + 0.5, v1], [u0, v1]], WHITE);
+      keep.push([x, z, 3.2]);
+      p = O(0.2, 0.4); vendors.push({ x: p[0], z: p[1], ang: Math.atan2(-nx, -nz), kind: "boutique" });
+      p = O(-1.3, 0); food.push({ x: p[0], z: p[1], name: "Boutique", item: "une boisson fraîche", price: 300, energy: 15, kind: "boutique",
+        menu: [["un sachet d'eau fraîche", 50, 10], ["une boisson fraîche", 300, 20], ["un paquet de biscuits", 200, 15], ["des cigarettes à l'unité", 100, 0]] });
+    }
     const STALLS = [
       ["fruits", "des mangues", 200, 25, [0xf39c12, 0xe67e22, 0x8bc34a]], ["eau", "un sachet d'eau fraîche", 50, 10, [0x8fd3ff, 0xdff3ff]],
       ["beignets", "des beignets", 200, 30, [0xc68a3c, 0xe0a050]], ["brochettes", "des brochettes", 500, 45, [0x7a3a1c, 0x9a4a22]],
       ["arachides", "des arachides grillées", 100, 15, [0xb88a4a, 0xa0703a]], ["pain", "du pain", 150, 25, [0xe0b070, 0xd09a58]],
+      ["cigarettes", "des cigarettes à l'unité", 100, 0, [0xf4f4f0, 0xc0392b]],
     ];
     for (const rd of roads) {
       if (!rd.main) continue;
@@ -662,10 +810,11 @@
         const x = A.x + rd.dx * t + nx * off, z = A.z + rd.dz * t + nz * off;
         if (z > RIVER[0] - 22 && z < RIVER[1] + 22) continue;
         if (stops.some((st) => Math.hypot(st.sx - x, st.sz - z) < 14) || stations.some((st) => Math.hypot(st.lx - x, st.lz - z) < 24) || kept(x, z)) continue;
+        if (rnd() < 0.25) { kiosk(x, z, ang, nx, nz, rd); continue; }
         const k = pick(STALLS);
-        iBox(x, 0, z, 0.9, 0.82, 1.9, C(0x7a5534, 0.2), ang);
-        for (let j = 0; j < 4; j++) iIco(x + rd.dx * rr(-0.7, 0.7) + nx * rr(-0.2, 0.2), 0.95, z + rd.dz * rr(-0.7, 0.7) + nz * rr(-0.2, 0.2), rr(0.14, 0.22), C(pick(k[4]), 0.15), 0.8);
-        iCyl(x, 1.3, z, 0.04, 2.6, C(0x333333)); iCone(x, 2.3, z, 1.3, 0.6, C(pick([0xe2b31d, 0xc0392b, 0x2e6fb0, 0x1f8a4c, 0xd2541f]), 0.1));
+        iBox(x, 0, z, 1.0, 0.82, 2.0, C(0x7a5534, 0.2), ang);
+        goods(k[0], x, z, rd);
+        iCyl(x + nx * 0.4, 1.3, z + nz * 0.4, 0.04, 2.6, C(0x333333)); iCone(x + nx * 0.4, 2.3, z + nz * 0.4, 1.35, 0.6, C(pick([0xe2b31d, 0xc0392b, 0x2e6fb0, 0x1f8a4c, 0xd2541f]), 0.1));
         keep.push([x, z, 3]);
         vendors.push({ x: x + rd.dx * 1.4 + nx * 0.3, z: z + rd.dz * 1.4 + nz * 0.3, ang: Math.atan2(-nx, -nz), kind: k[0] });
         food.push({ x: x - nx * 1.1, z: z - nz * 1.1, name: "Vendeuse", item: k[1], price: k[2], energy: k[3], kind: k[0] });
@@ -723,14 +872,14 @@
         const off = rd.w / 2 + 2.6, x = A.x + rd.dx * t + rd.nx * side * off, z = A.z + rd.dz * t + rd.nz * side * off;
         if (z > RIVER[0] - 18 && z < RIVER[1] + 18) continue;
         if (stops.some((s) => Math.hypot(s.sx - x, s.sz - z) < 10) || inRoad(x, z) || kept(x, z)) continue;
-        tree(x, z, rnd() < 0.8 ? "neem" : "mango");
+        tree(x, z, rnd() < 0.8 ? "neem" : "mango"); keep.push([x, z, 1.4]);
       }
       if (!rd.main) continue;
       let prev = null;
       for (let t = 10; t < rd.len - 10; t += 34) {
         const off = rd.w / 2 + 3.4, x = A.x + rd.dx * t + rd.nx * off, z = A.z + rd.dz * t + rd.nz * off;
         if (z > RIVER[0] - 18 && z < RIVER[1] + 18) { prev = null; continue; }
-        iCyl(x, 4, z, 0.13, 8, C(0x6b5440, 0.15));
+        iCyl(x, 4, z, 0.13, 8, C(0x6b5440, 0.15)); keep.push([x, z, 1.2]);
         iBox(x, 7.6, z, 0.18, 0.18, 2.2, C(0x4a3a2c), Math.atan2(rd.nx, rd.nz));
         if (prev) for (const o of [-0.9, 0, 0.9]) {
           const p0 = [prev[0] + rd.nx * o, 7.75, prev[1] + rd.nz * o], p1 = [x + rd.nx * o, 7.75, z + rd.nz * o];
@@ -779,7 +928,11 @@
     flushInst(new THREE.CylinderGeometry(0.4, 0.5, 1, 5, 1, true), INST.stem, true);
     flushInst(new THREE.ConeGeometry(1, 1, 8), INST.cone, true);
     flushInst(new THREE.IcosahedronGeometry(1, 0), INST.ico, true);
+    flushInst(canopyGeo(), INST.canopy, true, true, { vertexColors: true });
 
+    // parked police pickups and motos
+    if (policeCars.length) { const f = SB.policeFleet(scene, policeCars.length); policeCars.forEach((p, i) => f.set(i, p.x, 0.08, p.z, p.ang)); f.commit(); }
+    if (policeMotos.length) { const f = SB.policeMotoFleet(scene, policeMotos.length); policeMotos.forEach((p, i) => f.set(i, p.x, 0.08, p.z, p.ang, 0.12)); f.commit(); }
     // stop signs (the shelters are part of the instanced boxes above)
     for (const s of stops) {
       const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.stopSign(s.name) })); sign.position.set(s.sx, 6.2, s.sz); sign.scale.set(9, 2.8, 1); scene.add(sign);
@@ -790,7 +943,7 @@
     counts.roof = roofB.idx.length / 3; counts.road = roadB.idx.length / 3; counts.verge = vergeB.idx.length / 3; counts.jun = junB.idx.length / 3;
     return {
       counts, nodes, roads, stops, stations, landmarks, parked, inRoad, nearestRoad, RING, RIVER, water, waterGeo, waterBase, texWater,
-      walkable, food, vendors, lights, lampMesh, checkpoints,
+      walkable, drivable, food, vendors, lights, lampMesh, checkpoints, spin: scene.children.filter((o) => o.userData && o.userData.spin),
       bounds: { x0: -880, x1: 880, z0: -800, z1: 820 },
       start: { x: -95, z: -190 + 3, h: Math.PI / 2 },
     };

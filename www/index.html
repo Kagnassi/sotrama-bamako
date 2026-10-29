@@ -29,6 +29,7 @@
   <div class="hud" id="side">
     <canvas id="radar" aria-label="Plan autour du minibus"></canvas>
     <div class="tools">
+      <button class="tool" id="btnQuiet" type="button" hidden>Silence !</button>
       <button class="tool" id="btnFoot" type="button">Descendre</button>
       <button class="tool" id="btnMap" type="button">Plan</button>
       <button class="tool" id="btnCam" type="button">Caméra</button>
@@ -40,6 +41,8 @@
   <div class="hud panel" id="toast" role="status" aria-live="polite"></div>
   <div class="hud" id="speech" aria-live="polite"><b></b><span></span></div>
   <button class="hud panel" id="interact" type="button" hidden></button>
+  <div class="hud" id="msteer" hidden><i id="msteerDot"></i></div>
+  <div class="hud panel" id="talk" hidden role="dialog" aria-live="polite"><b id="talkWho"></b><p id="talkText"></p><div id="talkOpts"></div></div>
 
   <div id="pad">
     <div class="pad-group">
@@ -76,7 +79,7 @@
         <div id="team"></div>
       </details>
       <div id="ownBlock" hidden>
-        <h2>Couleurs de ta Sotrama</h2>
+        <h2>Couleurs de ton Sotrama</h2>
         <div class="liveries" id="liveries"></div>
         <h2>Garage</h2>
         <div id="upgrades"></div>
@@ -93,17 +96,33 @@
           <li><span class="dot red"></span><span>Respecte les <b>feux</b> et les <b>contrôles</b> : si la police te voit, elle te poursuit. Arrête-toi (amende de 2 500 F), sinon l'amende double.</span></li>
           <li><span class="dot"></span><span>Ton <b>énergie</b> baisse dans la journée. Descends (<kbd>E</kbd>) pour manger dans un restaurant, un maquis, une dibiterie ou chez une vendeuse.</span></li>
         </ul>
-        <p class="keys"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> ou <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire · <kbd>Espace</kbd> frein · <kbd>H</kbd> klaxon · <kbd>E</kbd> descendre, monter, manger · <kbd>M</kbd> plan · <kbd>C</kbd> caméra · <kbd>P</kbd> pause</p>
+        <p class="keys"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> ou <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> conduire · <kbd>Espace</kbd> frein · <kbd>H</kbd> klaxon · <kbd>E</kbd> descendre, monter, manger · <kbd>T</kbd> faire taire les passagers · <kbd>M</kbd> plan · <kbd>C</kbd> caméra · <kbd>P</kbd> pause<br>Souris : clic droit maintenu pour regarder autour, molette pour zoomer, <kbd>V</kbd> pour diriger à la souris (clic gauche = accélérer)</p>
       </details>
       <div class="settings">
         <button class="small ghost" id="qualityBtn" type="button"></button>
         <button class="small ghost" id="soundBtn" type="button"></button>
         <button class="small ghost" id="voiceBtn" type="button"></button>
+        <button class="small ghost" id="mouseBtn" type="button" hidden></button>
+        <button class="small ghost" id="langBtn" type="button"></button>
         <a class="small ghost" href="voix.html">Studio de voix</a>
         <button class="small" id="btnNoAds" type="button" hidden>Retirer les pubs</button>
         <button class="small ghost" id="btnRestore" type="button" hidden>Restaurer mes achats</button>
         <a class="small ghost" href="privacy.html">Confidentialité</a>
       </div>
+    </div>
+  </div>
+
+  <!-- First launch: the language of the characters -->
+  <div class="overlay" id="langBox" hidden>
+    <div class="card lang-card">
+      <p class="kicker">Sotrama Bamako</p>
+      <h1>Choisis ta <span>langue</span></h1>
+      <p class="lede">Dans quelle langue parlent l'apprenti, les passagers et les policiers ? Tu pourras changer plus tard dans le menu.</p>
+      <div class="actions">
+        <button class="cta" type="button" data-lang="fr">Français</button>
+        <button class="cta alt" type="button" data-lang="bm">Bamanankan (bambara)</button>
+      </div>
+      <p class="muted">Ton téléphone n'a pas de voix bambara : enregistre ta propre voix dans le studio de voix pour l'entendre vraiment.</p>
     </div>
   </div>
 

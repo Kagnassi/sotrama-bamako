@@ -49,7 +49,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 /* ---------- HUD ---------- */
 .hud { position: fixed; z-index: 2; pointer-events: none; }
 body:not(.in-garage) .hud { visibility: visible; }
-body.in-garage .hud, body.in-garage #pad, body.in-maliBox .hud, body.in-maliBox #pad { visibility: hidden; }
+body.in-garage .hud, body.in-garage #pad, body.in-maliBox .hud, body.in-maliBox #pad, body.in-langBox .hud, body.in-langBox #pad { visibility: hidden; }
+.lang-card .actions .cta { flex: 1 1 200px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .plate { font-family: var(--display); font-size: 11px; letter-spacing: 0.14em; color: var(--gold); }
 #meter { top: calc(var(--st) + 10px); left: calc(var(--sl) + 10px); padding: 8px 12px 10px; min-width: 190px; border-top: 4px solid var(--sotrama); }
@@ -65,6 +66,15 @@ body.in-garage .hud, body.in-garage #pad, body.in-maliBox .hud, body.in-maliBox 
 #fuel b, #energy b { font-family: var(--num); font-size: 14px; color: var(--paper); font-variant-numeric: tabular-nums; text-align: right; }
 #fuel.low i, #energy.low i { background: var(--laterite); }
 #fuel.low b, #energy.low b { color: var(--alert); }
+#talk { left: 50%; bottom: calc(var(--sb) + 110px); transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); padding: 14px 16px; pointer-events: auto; z-index: 4; border-color: rgba(242, 178, 51, 0.5); background: rgba(22, 17, 12, 0.92); }
+#talk b { display: block; font: 700 12px var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+#talk p { margin: 4px 0 10px; font-size: 16px; line-height: 1.4; font-weight: 600; }
+#talkOpts { display: grid; gap: 6px; }
+#talkOpts button { text-align: left; }
+#talkOpts kbd { margin-right: 6px; }
+@media (max-height: 520px) { #talk { bottom: calc(var(--sb) + 8px); padding: 10px 12px; } #talk p { font-size: 14px; margin: 2px 0 6px; } #talkOpts { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); } #talkOpts button { padding: 7px 10px; font-size: 13px; } }
+#msteer { bottom: calc(var(--sb) + 64px); left: 50%; transform: translateX(-50%); width: 220px; height: 4px; border-radius: 2px; background: rgba(247, 236, 216, 0.35); }
+#msteer i { position: absolute; top: -5px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--gold); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
 #interact { bottom: calc(var(--sb) + 172px); left: 50%; transform: translateX(-50%); pointer-events: auto; cursor: pointer; padding: 10px 18px; font: 600 15px var(--body); color: var(--ink); background: var(--gold); border: 0; border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); max-width: calc(100vw - 32px); }
 body.touch #interact { bottom: calc(var(--sb) + 196px); }
 
@@ -191,10 +201,10 @@ kbd { font-family: var(--num); font-size: 12px; border: 1px solid var(--line); b
 #maliSvg .city.can { cursor: pointer; }
 #maliSvg .city.can:hover circle:last-of-type { stroke: var(--gold); }
 #maliSvg .city.soon { opacity: 0.55; }
-#maliSvg .city.soon .cl { font-size: 24px; }
-#maliSvg .cl { font: 600 30px var(--num); fill: var(--paper); stroke: var(--ink); stroke-width: 7px; paint-order: stroke; stroke-linejoin: round; }
-#maliSvg .mz { font: 54px var(--display); fill: rgba(22, 17, 12, 0.22); letter-spacing: 0.3em; }
-#maliSvg .mr { font: italic 600 30px var(--body); fill: #2f7685; }
+#maliSvg .city:not(.can) .cl { font-size: 32px; opacity: 0.85; }
+#maliSvg .cl { font: 600 38px var(--num); fill: var(--paper); stroke: var(--ink); stroke-width: 7px; paint-order: stroke; stroke-linejoin: round; }
+#maliSvg .mz { font: 70px var(--display); fill: rgba(22, 17, 12, 0.22); letter-spacing: 0.3em; }
+#maliSvg .mr { font: italic 600 38px var(--body); fill: #2f7685; }
 .mali-side { position: relative; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; padding: 22px 18px 18px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 14px; }
 .mali-side::before { content: ""; position: absolute; inset: 0 0 auto; height: 8px; background: linear-gradient(180deg, var(--sotrama) 0 70%, var(--gold) 70% 100%); }
 .mali-side .kicker { margin: 0; }

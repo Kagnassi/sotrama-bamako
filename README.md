@@ -1,11 +1,16 @@
 # Sotrama Bamako
 
-Jeu de conduite en 3D : on commence apprenti sur une Sotrama (minibus vert) dans les rues de Bamako et on finit grand transporteur avec ses propres Sotrama et ses cars sur les routes du Mali.
+Jeu de conduite en 3D : on commence apprenti sur un Sotrama (minibus vert) dans les rues de Bamako et on finit grand transporteur avec ses propres Sotrama et ses cars sur les routes du Mali.
 
 - **En ville** : de 6 h à 20 h, on prend les passagers dans 37 quartiers, on les dépose, on fait le plein et on évite les accidents. Il y a des feux tricolores avec des policiers aux carrefours, des contrôles de police, des vendeuses au bord de la route, des restaurants, des maquis et des dibiteries, ainsi que les hôpitaux Gabriel Touré et du Point G.
 - **À pied** : le chauffeur peut descendre (touche E ou bouton « Descendre ») pour manger quand son énergie baisse, puis remonter dans son véhicule.
+- **Négocier** : certains passagers discutent le prix de la course, on peut marchander avec les vendeuses et s'expliquer avec le policier (avertissement, amende réduite… ou plus chère si on proteste).
+- **Police** : si un policier te voit griller un feu ou passer un contrôle, il te poursuit. Arrête-toi, sinon l'amende double.
+- **Apprenti** : quand tu en as un, il descend aux arrêts et monte les bagages sur le toit.
+- **Ville vivante** : piétons, vendeuses, boutiques, oiseaux qui s'envolent, motos Djakarta, taxis, voitures et 4x4.
+- **Souris sur PC** : clic droit maintenu pour regarder autour, molette pour zoomer, touche V pour diriger à la souris (clic gauche = accélérer).
 - **Carrière** : apprenti (25 % de la recette) → chauffeur (10 000 F de versement par jour au patron) → propriétaire → patron (tes chauffeurs te versent la recette) → chauffeur de car → transporteur → grand transporteur. On peut prendre des apprentis sous son aile : après 12 jours, ils deviennent chauffeurs.
-- **Carte du Mali** : on choisit sa destination (Koulikoro, Bougouni, Ségou, Sikasso, Kayes, Mopti). La route nationale traverse la savane et des villages. Il y a des contrôles de police, des péages et des stations-service, et les passagers montent et descendent en chemin.
+- **Carte du Mali** : on choisit sa destination parmi 21 villes (Kayes, Kita, Nioro, Ségou, Niono, San, Mopti, Djenné, Sikasso, Gao, Tombouctou, Kidal…). La route nationale traverse la savane et des villages. Il y a des contrôles de police, des péages et des stations-service, et les passagers montent et descendent en chemin.
 - **Voix** : l'apprenti crie les arrêts, et les passagers et les policiers parlent. Avec le **studio de voix** (`voix.html`), tu enregistres ta propre voix pour chaque phrase.
 
 Auteur : Cheickné Kagnassi
@@ -17,7 +22,7 @@ Auteur : Cheickné Kagnassi
 | `www/` | Le jeu lui-même (HTML, CSS, JavaScript), qui fonctionne aussi dans un navigateur |
 | `www/js/world.js` | La ville : routes, ponts, ronds-points, quartiers, bâtiments, arrêts, stations |
 | `www/js/textures.js` | Les textures dessinées par le code : façades, asphalte, couleurs des minibus, enseignes |
-| `www/js/vehicles.js` | La Sotrama du joueur, les motos Djakarta, les taxis, les autres Sotrama, les piétons |
+| `www/js/vehicles.js` | Le Sotrama du joueur, les motos Djakarta, les taxis, les autres Sotrama, les piétons |
 | `www/js/route.js` | Les routes nationales entre deux villes : savane, villages, contrôles, péages, stations, gares routières |
 | `www/js/mali.js` | La carte du Mali : frontières, fleuves, villes, lignes de car, distances et prix des billets |
 | `www/js/voices.js` | Les voix du jeu : ta voix enregistrée, sinon un fichier de `www/voix/`, sinon la voix du téléphone |

@@ -64,6 +64,10 @@
     skirt: paint(xf(new THREE.CylinderGeometry(0.2, 0.3, 0.8, 10, 1, true), 0, 0.5, 0)),
     basin: xf(new THREE.CylinderGeometry(0.42, 0.28, 0.16, 10), 0, 1.98, 0),
   };
+  PG.gearA = merge([paint(xf(new THREE.BoxGeometry(0.09, 0.17, 0.13), 0.23, 0.96, 0.02), 0x1c1c1c), paint(xf(new THREE.CylinderGeometry(0.42, 0.42, 0.06, 12, 1, true), 0, 0.88, 0, 0, 0, 0, 0.49, 1, 0.33), 0x2a2a2a),
+    paint(xf(new THREE.CylinderGeometry(0.016, 0.016, 0.07, 8), 0.05, 1.6, 0.21, Math.PI / 2, 0, 0), 0xd8d8d8), paint(xf(new THREE.CylinderGeometry(0.006, 0.006, 0.36, 4), 0.07, 1.44, 0.16, 0.25, 0, 0.2), 0xb03030)]);
+  PG.gearB = merge([paint(xf(new THREE.BoxGeometry(0.05, 0.95, 0.07), 0.02, 1.18, -0.19, 0, 0, 0.62), 0x1e1e1e), paint(xf(new THREE.BoxGeometry(0.06, 0.25, 0.1), -0.2, 0.92, -0.19, 0, 0, 0.62), 0x5a3a22),
+    paint(xf(new THREE.CylinderGeometry(0.012, 0.012, 0.75, 4), 0, 1.25, -0.12, 0, 0, -0.75), 0x2a2a2a)]);
   PG.head = xf(PG.headRaw(), 0, BODY.headY, 0);
   PG.headLow = xf(merge([xf(new THREE.SphereGeometry(0.18, 10, 7), 0, 0, 0, 0, 0, 0, 1, 1.1, 1.02)]), 0, BODY.headY, 0); PG.hair = xf(PG.hairRaw(), 0, BODY.headY, 0); PG.wrap = xf(PG.wrapRaw(), 0, BODY.headY, 0);
   let faceMat = null;
@@ -121,7 +125,7 @@
       const hub = new THREE.Mesh(hubGeo, chrome); w.add(hub); wheels.push(w);
     }
     // the apprenti, hanging at the open side door
-    const app = SB.personMesh(0x2b3a8c); app.position.set(-1.36, 0.42, -1.65); app.rotation.z = 0.16; app.userData.arms[1].rotation.z = 2.75; g.add(app);
+    const app = SB.personMesh(0x2b3a8c); app.position.set(-1.36, 0.42, -1.65); app.rotation.z = 0.16; app.userData.arms[1].rotation.z = 2.75; g.add(app); g.userData.apprenti = app;
     g.userData.wheels = wheels;
     return g;
   };
@@ -247,6 +251,12 @@
       glass: [[0.97, 1.0], [0.47, 1.34], [-1.03, 1.34], [-1.62, 1.0]], pillar: -0.28,
       front: 2.25, frontY: 0.72, back: -2.24, backY: 0.82, bump: 0.45,
     },
+    modern: {
+      len: 4.7, wid: 1.72, wz: 1.42, wr: 0.4, wy: 0.34, tire: 0.34, tx: 0.82, led: true,
+      profile: [[2.3, 0.33], [2.38, 0.52], [2.34, 0.66], [2.05, 0.78], [1.0, 0.9], [0.15, 1.38], [-0.9, 1.42], [-1.9, 1.06], [-2.32, 0.98], [-2.4, 0.66], [-2.32, 0.36]],
+      glass: [[0.99, 0.97], [0.32, 1.35], [-1.17, 1.35], [-1.98, 1.06]], pillar: -0.35,
+      front: 2.4, frontY: 0.66, back: -2.43, backY: 0.9, bump: 0.42,
+    },
     suv: {
       len: 4.8, wid: 1.74, wz: 1.45, wr: 0.48, wy: 0.42, tire: 0.42, tx: 0.82,
       profile: [[2.35, 0.42], [2.4, 0.75], [2.3, 1.05], [1.3, 1.12], [0.95, 1.78], [-2.25, 1.8], [-2.38, 1.1], [-2.35, 0.45]],
@@ -273,7 +283,10 @@
     const W = K.wid + 0.1, glassD = W + 0.03, gy0 = K.glass[0][1], gy1 = K.glass[1][1];
     const body = merge([paint(shell), paint(xf(new THREE.BoxGeometry(glassD + 0.01, gy1 - gy0, 0.09), 0, (gy0 + gy1) / 2, K.pillar))]);
     const glass = extrude(K.glass, glassD, false);
-    const lights = merge([
+    const lights = merge(K.led ? [
+      ...[-1, 1].map((s) => paint(xf(new THREE.BoxGeometry(0.5, 0.06, 0.06), s * (W / 2 - 0.32), K.frontY, K.front - 0.04, 0, 0, s * 0.08), 0xf4f8ff)),
+      paint(xf(new THREE.BoxGeometry(W * 0.86, 0.05, 0.06), 0, K.backY, K.back), 0xd0101a),
+    ] : [
       ...[-1, 1].map((s) => paint(xf(new THREE.BoxGeometry(0.36, 0.13, 0.06), s * (W / 2 - 0.26), K.frontY, K.front), 0xfff6dc)),
       ...[-1, 1].map((s) => paint(xf(new THREE.BoxGeometry(0.3, 0.13, 0.06), s * (W / 2 - 0.24), K.backY, K.back), 0xc0141a)),
       ...[-1, 1].map((s) => paint(xf(new THREE.BoxGeometry(0.1, 0.07, 0.06), s * (W / 2 - 0.05), K.frontY - 0.12, K.front - 0.02), 0xffa21a)),
@@ -306,7 +319,41 @@
   }
   SB.taxiFleet = (scene, count) => carFleet(scene, count, "saloon", true, [0xf1c232]);
   SB.carFleet = (scene, count) => carFleet(scene, count, "saloon", false, [0xf2f2f0, 0xf2f2f0, 0xe6e6e2, 0xb8bcc0, 0x6f7377, 0x1b1b1d, 0x7a1f1f, 0x1f2f5a, 0xcbb894]);
+  SB.modernFleet = (scene, count) => carFleet(scene, count, "modern", false, [0x141416, 0x141416, 0xf2f2f0, 0xa9adb2, 0x5a5e63, 0x1c2a44, 0x6b0f16]);
   SB.suvFleet = (scene, count) => carFleet(scene, count, "suv", false, [0xf4f4f2, 0xf4f4f2, 0xf4f4f2, 0xc0c4c8, 0x1b1b1d, 0xcbb894]);
+  // parked police vehicles, instanced (a few draw calls for all the posts)
+  SB.policeFleet = function (scene, count) {
+    const G = carGeos("suv", false), door = SB.tex.policeDoor();
+    const doors = merge([-1, 1].map((s) => xf(new THREE.PlaneGeometry(1.7, 0.42), s * (G.half + 0.012), 0.86, 0.15, 0, s * Math.PI / 2, 0)));
+    const bar = merge([paint(xf(new THREE.BoxGeometry(1.3, 0.08, 0.3), 0, 1.86, 0.4), 0x1a1a1a), paint(xf(new THREE.BoxGeometry(0.6, 0.16, 0.28), -0.32, 1.97, 0.4), 0xd02020), paint(xf(new THREE.BoxGeometry(0.6, 0.16, 0.28), 0.32, 1.97, 0.4), 0x2050e0)]);
+    return new Fleet(scene, [
+      { geo: G.body, mat: std({ vertexColors: true, color: lin(0x1f3a6b), roughness: 0.35, metalness: 0.3 }) },
+      { geo: G.glass, mat: std({ color: lin(0x1b242a), roughness: 0.1, metalness: 0.6 }) },
+      { geo: G.lights, mat: new THREE.MeshBasicMaterial({ vertexColors: true }) },
+      { geo: G.trim, mat: std({ vertexColors: true, roughness: 0.6, metalness: 0.2 }) },
+      { geo: doors, mat: std({ map: door }) },
+      { geo: bar, mat: new THREE.MeshBasicMaterial({ vertexColors: true }) },
+    ], count);
+  };
+  SB.policeMotoFleet = function (scene, count) {
+    const G = motoGeos();
+    const bags = merge([-1, 1].map((s) => paint(xf(new THREE.BoxGeometry(0.16, 0.32, 0.45), s * 0.25, 0.72, -0.55), 0x1f3a6b)).concat([paint(xf(new THREE.BoxGeometry(0.2, 0.06, 0.08), 0, 1.16, 0.62), 0x2a5cff)]));
+    return new Fleet(scene, [
+      { geo: G.body, mat: std({ color: lin(0xf4f4f2), roughness: 0.35, metalness: 0.2 }) },
+      { geo: G.mech, mat: std({ vertexColors: true, roughness: 0.45, metalness: 0.45 }) },
+      { geo: bags, mat: std({ vertexColors: true, roughness: 0.6 }) },
+    ], count);
+  };
+  SB.makePoliceMoto = function () {
+    const G = motoGeos(), g = new THREE.Group();
+    const add = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; g.add(m); return m; };
+    add(G.body, std({ color: lin(0xf4f4f2), roughness: 0.35, metalness: 0.2 }));
+    add(G.mech, std({ vertexColors: true, roughness: 0.45, metalness: 0.45 }));
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.16, 0.32, 0.45), std({ color: lin(0x1f3a6b) })).position.set(s * 0.25, 0.72, -0.55);
+    add(new THREE.BoxGeometry(0.2, 0.06, 0.08), new THREE.MeshBasicMaterial({ color: 0x2a5cff })).position.set(0, 1.16, 0.62);
+    g.rotation.z = 0.12;
+    return g;
+  };
   // the police 4x4 that chases you, with its flashing light bar
   SB.makePolice = function () {
     const G = carGeos("suv", false), g = new THREE.Group();
@@ -354,8 +401,9 @@
     this.torso = mk(PG.torso, vc(), capacity); this.head = mk(low ? PG.headLow : PG.head, getFaceMat(), capacity);
     this.hair = mk(PG.hair, std({ roughness: 0.95 }), capacity, false); this.wrap = mk(PG.wrap, std(), capacity, false);
     this.skirt = mk(PG.skirt, vc(), capacity); this.load = mk(PG.basin, std({ roughness: 0.5 }), capacity);
-    this.meshes = [this.legs, this.arms, this.hands, this.torso, this.head, this.hair, this.wrap, this.skirt, this.load];
-    this.look = Array.from({ length: capacity }, () => ({ hair: false, wrap: false, skirt: false, load: false }));
+    this.gearA = mk(PG.gearA, vc(), capacity, false); this.gearB = mk(PG.gearB, vc(), capacity, false);
+    this.meshes = [this.legs, this.arms, this.hands, this.torso, this.head, this.hair, this.wrap, this.skirt, this.load, this.gearA, this.gearB];
+    this.look = Array.from({ length: capacity }, () => ({ hair: false, wrap: false, skirt: false, load: false, gear: 0 }));
     this.used = 0; for (const m of this.meshes) m.count = 0;
   }
   People.prototype.colors = function (i, shirt, pants, skin, hair, wrap, skirt) {
@@ -370,7 +418,7 @@
     const i = this.free.pop(); if (i === undefined) return -1;
     if (i + 1 > this.used) { this.used = i + 1; for (const m of this.meshes) m.count = m === this.legs || m === this.arms || m === this.hands ? this.used * 2 : this.used; }
     const woman = Math.random() < 0.45, L = this.look[i], pagne = pick(CLOTH);
-    L.skirt = woman; L.wrap = woman ? Math.random() < 0.75 : Math.random() < 0.25; L.hair = !L.wrap; L.load = false;
+    L.skirt = woman; L.wrap = woman ? Math.random() < 0.75 : Math.random() < 0.25; L.hair = !L.wrap; L.load = false; L.gear = 0;
     this.colors(i, pick(CLOTH), woman ? pagne : pick(PANTS), pick(SKIN), pick(HAIR), woman ? pick(CLOTH) : pick([0xf3efe6, 0x2b2b2b, 0x6a2d7a, 0xe2b31d]), pagne);
     return i;
   };
@@ -388,6 +436,7 @@
     this.torso.setMatrixAt(i, _B); this.head.setMatrixAt(i, _B);
     this.hair.setMatrixAt(i, L.hair ? _B : ZERO); this.wrap.setMatrixAt(i, L.wrap ? _B : ZERO);
     this.skirt.setMatrixAt(i, L.skirt ? _B : ZERO); this.load.setMatrixAt(i, L.load ? _B : ZERO);
+    this.gearA.setMatrixAt(i, L.gear ? _B : ZERO); this.gearB.setMatrixAt(i, L.gear > 1 ? _B : ZERO);
   };
   // a basin carried on the head (walking vendors)
   People.prototype.setLoad = function (i, color) {
@@ -395,15 +444,16 @@
     this.load.setColorAt(i, _c.setHex(color).convertSRGBToLinear()); this.load.instanceColor.needsUpdate = true;
   };
   // uniforms (police, toll agents) and vendors in pagne
-  People.prototype.dress = function (i, cloth, cap, pagne) {
-    const L = this.look[i]; L.hair = cap === undefined; L.wrap = cap !== undefined; L.skirt = pagne !== undefined;
+  // gear: 1 = whistle and pistol holster, 2 = also a rifle on the back
+  People.prototype.dress = function (i, cloth, cap, pagne, gear) {
+    const L = this.look[i]; L.hair = cap === undefined; L.wrap = cap !== undefined; L.skirt = pagne !== undefined; L.gear = gear || 0;
     this.colors(i, cloth, pagne !== undefined ? pagne : 0x1f2a36, undefined, undefined, cap, pagne);
   };
   People.prototype.release = function (i) {
     if (i < 0) return;
     for (const m of [this.legs, this.arms, this.hands]) { m.setMatrixAt(i * 2, ZERO); m.setMatrixAt(i * 2 + 1, ZERO); }
-    for (const m of [this.torso, this.head, this.hair, this.wrap, this.skirt, this.load]) m.setMatrixAt(i, ZERO);
-    this.look[i].load = false; this.free.push(i);
+    for (const m of [this.torso, this.head, this.hair, this.wrap, this.skirt, this.load, this.gearA, this.gearB]) m.setMatrixAt(i, ZERO);
+    this.look[i].load = false; this.look[i].gear = 0; this.free.push(i);
   };
   People.prototype.commit = function () { for (const m of this.meshes) m.instanceMatrix.needsUpdate = true; };
   SB.People = People;

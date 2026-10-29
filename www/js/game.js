@@ -25,10 +25,10 @@
   const HIGH = S.quality !== "eco", ULTRA = S.quality === "ultra";
 
   /* ---------- economy (F CFA) ---------- */
-  const DAY = 360, FUEL_PRICE = 800, M_PER_L = 220;
+  const DAY = 720, FUEL_PRICE = 800, M_PER_L = 220;
   const ENGINE = [{ v: 17, price: 0 }, { v: 19, price: 80000 }, { v: 21, price: 160000 }];
   const TANK = [{ v: 50, price: 0 }, { v: 70, price: 50000 }, { v: 90, price: 110000 }];
-  const PRICE = { permis: 75000, permisCar: 150000, sotrama: 600000, car: 2500000, hire: 25000, apprenti: 10000 };
+  const PRICE = { permis: 40000, permisCar: 90000, sotrama: 600000, car: 2500000, hire: 25000, apprenti: 10000 };
   const VERSEMENT = 10000, ENTRETIEN = 1000, APPRENTI_PAY = 1000, SHARE = 0.25;
   const carRent = (km) => 20000 + 150 * km, carMaint = (km) => 25 * km;
   const NAMES = ["Moussa", "Bakary", "Seydou", "Adama", "Oumar", "Fousseyni", "Drissa", "Sékou", "Mamadou", "Ibrahim", "Lassana", "Modibo", "Souleymane", "Boubacar", "Yacouba", "Aminata", "Kadiatou", "Fatoumata", "Salif", "Issa"];
@@ -45,8 +45,8 @@
   }
   const OBJECTIVES = [
     { id: "permis", title: "Passer le permis transport", text: "Tu deviens chauffeur : tu gardes la recette, moins 10 000 F de versement par jour au patron.", price: PRICE.permis, done: () => S.permis, buy: () => { S.permis = true; } },
-    { id: "sotrama", title: "Acheter ta première Sotrama", text: "Une Sotrama d'occasion : plus de versement, la recette est pour toi (entretien 1 000 F par jour).", price: PRICE.sotrama, done: () => S.fleet.some((v) => v.type === "sotrama"), buy: () => addVehicle("sotrama") },
-    { id: "patron", title: "Devenir patron", text: "Achète une deuxième Sotrama et embauche un chauffeur : elle te rapporte un versement chaque jour.", price: PRICE.sotrama, done: () => S.fleet.length >= 2, buy: () => addVehicle("sotrama") },
+    { id: "sotrama", title: "Acheter ta premier Sotrama", text: "Un Sotrama d'occasion : plus de versement, la recette est pour toi (entretien 1 000 F par jour).", price: PRICE.sotrama, done: () => S.fleet.some((v) => v.type === "sotrama"), buy: () => addVehicle("sotrama") },
+    { id: "patron", title: "Devenir patron", text: "Achète un deuxième Sotrama et embauche un chauffeur : elle te rapporte un versement chaque jour.", price: PRICE.sotrama, done: () => S.fleet.length >= 2, buy: () => addVehicle("sotrama") },
     { id: "permisCar", title: "Passer le permis car", text: "Tu conduis les cars de la compagnie vers les régions du Mali (location du car à chaque voyage).", price: PRICE.permisCar, done: () => S.permisCar, buy: () => { S.permisCar = true; } },
     { id: "car", title: "Acheter ton premier car", text: "Ta propre ligne : Kagnassi Transport. Plus de location, seulement l'entretien.", price: PRICE.car, done: () => S.fleet.some((v) => v.type === "car"), buy: () => addVehicle("car") },
     { id: "grand", title: "Devenir grand transporteur", text: "Deux cars et trois Sotrama, avec leurs chauffeurs.", price: PRICE.car, done: () => S.fleet.filter((v) => v.type === "car").length >= 2 && S.fleet.filter((v) => v.type === "sotrama").length >= 3, buy: () => addVehicle(S.fleet.filter((v) => v.type === "car").length < 2 ? "car" : "sotrama") },
@@ -61,7 +61,7 @@
   /* ---------- engine objects ---------- */
   let renderer, scene, camera, sun, hemi, sky, sunSprite, dust;
   let worldGroup = null, world = null, loaded = "";
-  let busMesh, motos, taxis, cars, suvs, aiBuses = {}, trucks, coaches, people;
+  let busMesh, motos, taxis, cars, moderns, suvs, aiBuses = {}, trucks, coaches, people;
   const agents = [], walkers = [], pedestrians = [];
   const bus = { x: 0, z: 0, h: 0, v: 0, steer: 0, fuel: 20 };
   let veh = null; // the vehicle driven today
@@ -70,6 +70,7 @@
   let onboard = [], onboardDirty = true;
   let atStop = null, lastStop = null, workT = 0, announced = false, hinted = false, fullShown = false, crashCool = 0, fuelWarned = false, slowT = 0;
   let maliPick = null;
+  const mouse = { steer: !!S.mouseSteer, x: 0, look: false, yaw: 0, pitch: 0, zoom: 1, gas: false, lx: 0, ly: 0 };
   let foot = null, footMesh = null, redCool = 0, vendT = 3, hungerWarned = false, tiredShown = false;
 
   async function boot() {
@@ -78,7 +79,7 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, ULTRA ? 3 : HIGH ? 1.6 : 1.1));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
     renderer.shadowMap.enabled = HIGH;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     SB.maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -107,14 +108,14 @@
       dust = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.5, map: SB.tex.glow("rgba(230,200,160,0.9)", "rgba(230,200,160,0)"), transparent: true, opacity: 0.55, depthWrite: false }));
       dust.userData.base = Float32Array.from(pos); scene.add(dust);
     }
-    SB.voice.setEnabled(S.voice);
+    SB.voice.setEnabled(S.voice); SB.voice.setLang(S.lang);
     setupInput();
     SB.purchases.onOwned = () => { S.noAds = true; save(); renderGarage(); };
     SB.ads.init(S);
     document.addEventListener("deviceready", () => SB.purchases.init(), false);
     if (S.city === "bamako") await loadCity(); else await loadRoute(SB.mali.routesFrom(S.city)[0]);
-    if (window.location.search.includes("debug")) SB.debug = { bus, get world() { return world; }, get foot() { return foot; }, get day() { return day; }, onboard: () => onboard, stats: () => renderer.info.render, S, startTrip, startCityDay, toggleFoot, doAction, lightState, startPursuit, get police() { return police; }, get scene() { return scene; }, snap: () => { camInit = false; } };
-    showGarage();
+    if (window.location.search.includes("debug")) SB.debug = { bus, get world() { return world; }, get foot() { return foot; }, get day() { return day; }, onboard: () => onboard, stats: () => renderer.info.render, S, startTrip, startCityDay, toggleFoot, doAction, lightState, startPursuit, get police() { return police; }, get scene() { return scene; }, birds: () => birds, haggle: () => haggle({ dest: 3, fare: 250 }, world.stops[0]), quiet, setChat: (t) => { chatT = t; }, policeTalk: () => policeTalk({ reason: "feu rouge grillé", fine: 2500 }), foodTalk: (i) => foodTalk(world.food[i]), snap: () => { camInit = false; }, setMarker, get gps() { return gps; }, gpsNow: () => updateGps(0, true), toggleMap, guide: () => guideTarget(), get mode() { return mode; }, answer: (i) => answer(i), get talk() { return talk; } };
+    if (S.lang) showGarage(); else { mode = "garage"; resetBus(); setupVehicle("sotrama"); show("langBox", true); }
     requestAnimationFrame(frame);
   }
 
@@ -134,7 +135,7 @@
   }
   function resetWorldState() {
     if (worldGroup) disposeGroup(worldGroup);
-    agents.length = 0; walkers.length = 0; pedestrians.length = 0; markers = null; aiBuses = {}; trucks = coaches = null;
+    agents.length = 0; walkers.length = 0; pedestrians.length = 0; markers = null; birdMesh = null; birds.length = 0; clearMarker(); aiBuses = {}; trucks = coaches = null;
     worldGroup = new THREE.Group(); scene.add(worldGroup);
   }
   async function loadCity() {
@@ -146,14 +147,15 @@
       people = new SB.People(worldGroup, HIGH ? 480 : 380, { low: !HIGH });
       motos = SB.motoFleet(worldGroup, HIGH ? 46 : 32);
       taxis = SB.taxiFleet(worldGroup, HIGH ? 9 : 6);
-      cars = SB.carFleet(worldGroup, HIGH ? 10 : 7);
+      cars = SB.carFleet(worldGroup, HIGH ? 6 : 4);
+      moderns = SB.modernFleet(worldGroup, HIGH ? 6 : 4);
       suvs = SB.suvFleet(worldGroup, HIGH ? 5 : 3);
       aiBuses = { vert: SB.busFleet(worldGroup, "vert", 5), bleu: SB.busFleet(worldGroup, "bleu", 2) };
       const parked = {};
       for (const p of world.parked) (parked[p.livery] = parked[p.livery] || []).push(p);
       for (const [liv, list] of Object.entries(parked)) { const f = SB.busFleet(worldGroup, liv, list.length, true); list.forEach((p, i) => f.set(i, p.x, 0.06, p.z, p.ang)); f.commit(); }
       world.lightByNode = new Map(world.lights.map((L) => [L.node, L]));
-      spawnTraffic(); spawnPedestrians(); placeStaticPeople();
+      spawnTraffic(); spawnPedestrians(); placeStaticPeople(); spawnBirds();
       for (const s of world.stops) { const n = Math.floor(rand(2, 6)); for (let k = 0; k < n; k++) addWaiting(s); }
       loaded = "city";
     });
@@ -167,14 +169,15 @@
       people = new SB.People(worldGroup, 270, { low: !HIGH });
       motos = SB.motoFleet(worldGroup, HIGH ? 12 : 8);
       taxis = SB.taxiFleet(worldGroup, 3);
-      cars = SB.carFleet(worldGroup, 3);
+      cars = SB.carFleet(worldGroup, 2);
+      moderns = SB.modernFleet(worldGroup, 2);
       suvs = SB.suvFleet(worldGroup, 3);
       trucks = SB.truckFleet(worldGroup, HIGH ? 10 : 7);
       coaches = SB.coachFleet(worldGroup, HIGH ? 3 : 2);
       const pc = SB.coachFleet(worldGroup, world.parked.length); world.parked.forEach((p, i) => pc.set(i, p.x, 0.06, p.z, p.ang)); pc.commit();
-      spawnTraffic(); placeStaticPeople();
+      spawnTraffic(); placeStaticPeople(); spawnBirds();
       // police and toll agents
-      for (const cp of world.checkpoints) for (const [x, z] of cp.people) { const id = people.alloc(); if (id < 0) continue; people.dress(id, cp.kind === "police" ? 0x34465e : 0xe2b31d, 0x1f2a36); people.set(id, x, z, Math.atan2(-world.at(cp.s, 1)[0] + world.at(cp.s, 0)[0], -world.at(cp.s, 1)[1] + world.at(cp.s, 0)[1])); }
+      for (const cp of world.checkpoints) for (const [x, z] of cp.people) { const id = people.alloc(); if (id < 0) continue; people.dress(id, cp.kind === "police" ? 0x34465e : 0xe2b31d, 0x1f2a36, undefined, cp.kind === "police" ? 2 : 0); people.set(id, x, z, Math.atan2(-world.at(cp.s, 1)[0] + world.at(cp.s, 0)[0], -world.at(cp.s, 1)[1] + world.at(cp.s, 0)[1])); }
       people.commit();
       loaded = key;
     });
@@ -236,13 +239,14 @@
     ag.hx = (ag.path[1][0] - ag.path[0][0]) / d; ag.hz = (ag.path[1][1] - ag.path[0][1]) / d; ag.rang = Math.atan2(ag.hx, ag.hz);
     ag.crash = 0; ag.roll = 0; ag.speed = ag.base * 0.6;
   }
-  const SIZE = { moto: [1.9, 0.75], taxi: [4.5, 1.85], car: [4.5, 1.85], suv: [4.9, 1.95], bus: [5.4, 2.3], coach: [12, 2.55], truck: [10.8, 2.55] };
+  const SIZE = { moto: [1.9, 0.75], taxi: [4.5, 1.85], car: [4.5, 1.85], modern: [4.8, 1.9], suv: [4.9, 1.95], bus: [5.4, 2.3], coach: [12, 2.55], truck: [10.8, 2.55] };
   function spawnTraffic() {
     const add = (fleet, i, type, base, lane) => { const ag = { fleet, i, type, base, lane, len: SIZE[type][0], wid: SIZE[type][1], dodge: 0 }; placeAgent(ag); agents.push(ag); };
     const road = world.kind === "route";
     for (let i = 0; i < motos.count; i++) add(motos, i, "moto", road ? rand(12, 18) : rand(9, 14), road ? rand(2.4, 3.4) : rand(2.0, 4.2));
     for (let i = 0; i < taxis.count; i++) add(taxis, i, "taxi", road ? rand(17, 22) : rand(8, 12), road ? 2.3 : 3);
     for (let i = 0; i < cars.count; i++) add(cars, i, "car", road ? rand(18, 24) : rand(8, 12.5), road ? 2.3 : 3);
+    for (let i = 0; i < moderns.count; i++) add(moderns, i, "modern", road ? rand(20, 26) : rand(9, 13), road ? 2.3 : 3);
     for (let i = 0; i < suvs.count; i++) add(suvs, i, "suv", road ? rand(18, 24) : rand(8, 12), road ? 2.3 : 3);
     for (const f of Object.values(aiBuses)) for (let i = 0; i < f.count; i++) add(f, i, "bus", rand(7, 10), 3.2);
     if (trucks) for (let i = 0; i < trucks.count; i++) add(trucks, i, "truck", rand(14, 19), 2.3);
@@ -290,7 +294,96 @@
       let da = Math.atan2(ag.hx, ag.hz) - ag.rang; da = Math.atan2(Math.sin(da), Math.cos(da)); ag.rang += da * Math.min(1, dt * 7);
       ag.fleet.set(ag.i, ag.rx, 0.08, ag.rz, ag.rang, ag.type === "moto" ? ag.roll : ag.roll * 0.15);
     }
-    for (const f of [motos, taxis, cars, suvs, trucks, coaches, ...Object.values(aiBuses)]) if (f) f.commit();
+    for (const f of [motos, taxis, cars, moderns, suvs, trucks, coaches, ...Object.values(aiBuses)]) if (f) f.commit();
+  }
+
+  /* ---------- birds: pigeons and egrets fly off when you come near, kites circle high in the sky ---------- */
+  let birdMesh = null; const birds = [];
+  const _bm = new THREE.Matrix4(), _bq = new THREE.Quaternion(), _be = new THREE.Euler(), _bp = new THREE.Vector3(), _bs = new THREE.Vector3();
+  function birdGeometry() {
+    const P = [0, 0.02, 0.16, -0.05, 0, 0, 0.05, 0, 0, -0.05, 0, 0, 0, 0.01, -0.18, 0.05, 0, 0, // body
+      0, 0, 0.06, -0.38, 0.12, -0.04, 0, 0, -0.08, 0, 0, 0.06, 0, 0, -0.08, 0.38, 0.12, -0.04]; // wings, tips raised: the y scale flaps them
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.computeVertexNormals(); return g;
+  }
+  function groundSpot() {
+    const rd = world.roads[Math.floor(Math.random() * world.roads.length)], A = world.nodes[rd.a], t = rand(5, Math.max(6, rd.len - 5)), side = Math.random() < 0.5 ? -1 : 1, off = rd.w / 2 + rand(1.5, 4);
+    return [A.x + rd.dx * t + rd.nx * side * off, A.z + rd.dz * t + rd.nz * side * off];
+  }
+  function landFlock(f, anywhere) {
+    const F = foot || bus; let p = groundSpot();
+    for (let k = 0; k < 12 && !anywhere && Math.hypot(p[0] - F.x, p[1] - F.z) < 90; k++) p = groundSpot();
+    for (const b of birds) if (b.flock === f && b.state !== "soar") Object.assign(b, { state: "ground", x: p[0] + rand(-2.5, 2.5), z: p[1] + rand(-2.5, 2.5), y: 0.12, h: rand(0, 6.28), t: 0 });
+  }
+  function spawnBirds() {
+    const n = HIGH ? 96 : 56, soar = 8, kinds = world.kind === "route" ? [0xf2f2ee, 0xf2f2ee, 0x7d7f86] : [0x7d7f86, 0x8a8c92, 0xf2f2ee, 0x6f7176];
+    birdMesh = new THREE.InstancedMesh(birdGeometry(), new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.9 }), n);
+    birdMesh.frustumCulled = false; birdMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    birds.length = 0;
+    for (let i = 0; i < n; i++) {
+      const high = i >= n - soar;
+      birdMesh.setColorAt(i, lin(high ? 0x3a2e28 : kinds[Math.floor(Math.random() * kinds.length)]));
+      birds.push({ i, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, h: 0, state: high ? "soar" : "ground", ph: rand(0, 6), t: 0, flock: Math.floor(i / 8), r: rand(16, 32), a: rand(0, 6.28), cx: bus.x, cz: bus.z });
+    }
+    for (let f = 0; f * 8 < n - soar; f++) landFlock(f, true);
+    worldGroup.add(birdMesh);
+  }
+  function updateBirds(dt) {
+    if (!birdMesh) return;
+    const F = foot || bus, sp = foot ? 0 : Math.abs(bus.v), scared = new Set();
+    for (const b of birds) if (b.state === "ground" && Math.hypot(b.x - F.x, b.z - F.z) < 12 + sp * 0.8) scared.add(b.flock);
+    for (const b of birds) {
+      if (b.state === "ground" && scared.has(b.flock)) {
+        const dx = b.x - F.x, dz = b.z - F.z, d = Math.hypot(dx, dz) || 1, s = rand(6, 9);
+        Object.assign(b, { state: "fly", t: 0, vx: (dx / d) * s + rand(-2, 2), vz: (dz / d) * s + rand(-2, 2), vy: rand(3, 5) });
+      }
+      let flap = 0.3, sc = 1.5, y = b.y;
+      if (b.state === "ground") { b.ph += dt * 4; sc = 0.9; flap = 0.2; y = b.y + Math.max(0, Math.sin(b.ph * 1.7)) * 0.03; if (Math.sin(b.ph * 0.3) > 0.95) b.h += dt * 2; }
+      else if (b.state === "fly") {
+        b.t += dt; b.vy += ((b.t < 3 ? 4 : 0) - b.vy) * dt * 0.8; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt; b.h = Math.atan2(b.vx, b.vz); y = b.y;
+        b.ph += dt * 16; flap = Math.sin(b.ph) * 1.2;
+        if (b.t > 9) landFlock(b.flock, false);
+      } else {
+        b.cx += (F.x - b.cx) * dt * 0.05; b.cz += (F.z - b.cz) * dt * 0.05; b.a += dt * 0.22; b.ph += dt * 2.5;
+        b.x = b.cx + Math.cos(b.a + b.i) * b.r; b.z = b.cz + Math.sin(b.a + b.i) * b.r; y = 34 + Math.sin(b.ph * 0.3 + b.i) * 3; b.h = -(b.a + b.i); flap = 0.3 + Math.sin(b.ph) * 0.12; sc = 2.6;
+      }
+      _be.set(0, b.h, 0); _bq.setFromEuler(_be); _bm.compose(_bp.set(b.x, y, b.z), _bq, _bs.set(sc, flap * sc, sc)); birdMesh.setMatrixAt(b.i, _bm);
+    }
+    birdMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  /* ---------- the apprenti steps down at the stops and throws the bags onto the roof ---------- */
+  let appMesh = null; const bags = [];
+  const BAG_COLORS = [0x2e6fb0, 0xc0392b, 0xe2b31d, 0x7a5534, 0x2f7a4d, 0xe7dcc6, 0x6a2d7a];
+  function apprentiActive() { return !!(day && day.kind === "city" && veh && veh.type === "sotrama" && helpers() > 0 && !day.apprenti); }
+  function throwBag(x, z) {
+    let b = bags.find((q) => !q.on);
+    if (!b) { if (bags.length >= 8) return; b = { mesh: new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.38, 0.7), new THREE.MeshStandardMaterial({ roughness: 0.85 })) }; b.mesh.castShadow = true; scene.add(b.mesh); bags.push(b); }
+    const fx = Math.sin(bus.h), fz = Math.cos(bus.h), lx = rand(-0.5, 0.5), lz = rand(-1.6, 1.2), d = doorWorld();
+    Object.assign(b, { on: true, t: 0, x0: x, z0: z, dx: d.x, dz: d.z, rx: bus.x + fx * lz - fz * lx, rz: bus.z + fz * lz + fx * lx });
+    b.mesh.material.color.copy(lin(BAG_COLORS[Math.floor(Math.random() * BAG_COLORS.length)])); b.mesh.visible = true;
+  }
+  function updateApprenti(dt) {
+    const hanging = busMesh && busMesh.userData.apprenti;
+    const down = apprentiActive() && atStop && Math.abs(bus.v) < 1.2 && !foot;
+    if (hanging) hanging.visible = !down;
+    if (!appMesh) { appMesh = SB.personMesh(0x2b3a8c, 0x1f2a36); appMesh.visible = false; scene.add(appMesh); }
+    appMesh.visible = !!down;
+    let throwing = false;
+    for (const b of bags) {
+      if (!b.on) continue;
+      b.t += dt; let x, y, z;
+      if (b.t < 0.7) { const k = b.t / 0.7; x = b.x0 + (b.dx - b.x0) * k; z = b.z0 + (b.dz - b.z0) * k; y = 0.95; }      // the passenger brings it
+      else if (b.t < 1.5) { const k = (b.t - 0.7) / 0.8; x = b.dx + (b.rx - b.dx) * k; z = b.dz + (b.rz - b.dz) * k; y = 1.6 + (2.75 - 1.6) * k + Math.sin(k * Math.PI) * 1.4; throwing = true; } // the apprenti throws it up
+      else { x = b.rx; z = b.rz; y = 2.75; }
+      b.mesh.position.set(x, y, z); b.mesh.rotation.y = bus.h + b.t * (b.t < 1.5 ? 3 : 0);
+      if (b.t > 2.6 || !atStop) { b.on = false; b.mesh.visible = false; }
+    }
+    if (down) {
+      const d = doorWorld();
+      appMesh.position.set(d.x - Math.cos(bus.h) * 0.4, 0.08, d.z + Math.sin(bus.h) * 0.4); appMesh.rotation.y = Math.atan2(-Math.cos(bus.h), Math.sin(bus.h));
+      const arms = appMesh.userData.arms;
+      if (throwing) { arms[0].rotation.x = -2.8; arms[1].rotation.x = -2.8; } else appMesh.userData.pose(null);
+    }
   }
 
   /* ---------- people ---------- */
@@ -298,7 +391,7 @@
   const pickC = (a) => a[Math.floor(Math.random() * a.length)];
   function placeStaticPeople() {
     for (const v of world.vendors || []) { const id = people.alloc(); if (id < 0) break; people.dress(id, pickC(BRIGHT), pickC(BRIGHT), pickC(BRIGHT)); people.set(id, v.x, v.z, v.ang); }
-    for (const L of world.lights || []) if (L.cop) { const id = people.alloc(); if (id < 0) break; people.dress(id, 0xf4f4f0, 0x1f2a5a); people.set(id, L.cop[0], L.cop[1], L.cop[2]); }
+    for (const L of world.lights || []) if (L.cop) { const id = people.alloc(); if (id < 0) break; people.dress(id, 0xf4f4f0, 0x1f2a5a, undefined, 1); people.set(id, L.cop[0], L.cop[1], L.cop[2]); }
     people.commit();
   }
   function spawnPedestrians() {
@@ -367,11 +460,11 @@
     for (const cp of world.checkpoints) {
       for (const id of cp.ids || []) people.release(id);
       Object.assign(cp, { ids: [], wait: 0, inside: false, greeted: false, state: Math.random() < 0.65 ? "pending" : "off" });
-      if (cp.state === "pending") for (const [x, z] of cp.people) { const id = people.alloc(); if (id < 0) continue; people.dress(id, 0x34465e, 0x1f2a36); people.set(id, x, z, cp.ang + Math.PI / 2); cp.ids.push(id); }
+      if (cp.state === "pending") for (const [x, z] of cp.people) { const id = people.alloc(); if (id < 0) continue; people.dress(id, 0x34465e, 0x1f2a36, undefined, 2); people.set(id, x, z, cp.ang + Math.PI / 2); cp.ids.push(id); }
     }
-    people.commit(); resetFoot(); endPursuit();
+    people.commit(); resetFoot(); endPursuit(); closeTalk();
     mode = "play";
-    toast(asApprenti ? "Jour " + S.day + " · Apprenti : le patron te laisse conduire sa Sotrama" : "Jour " + S.day + " · 6 h : départ de Grand Marché");
+    toast(asApprenti ? "Jour " + S.day + " · Apprenti : le patron te laisse conduire son Sotrama" : "Jour " + S.day + " · 6 h : départ de Grand Marché");
   }
   const helpers = () => S.staff.filter((p) => p.role === "apprenti").length;
   function pickDest(s) { let d; do { d = Math.floor(Math.random() * world.stops.length); } while (d === s.i); return d; }
@@ -392,7 +485,7 @@
     setupVehicle("coach", trip);
     const own = veh.own;
     day = { kind: "trip", trip, fares: 0, fuel: 0, fines: 0, toll: 0, food: 0, energy: 100, served: 0, accidents: 0, doubled: false, own: !!own, rent: own ? 0 : carRent(trip.km), maint: own ? carMaint(trip.km) : 0 };
-    elapsed = 0; onboard = []; onboardDirty = true; fuelWarned = false; slowT = 0; resetFoot(); endPursuit();
+    elapsed = 0; onboard = []; onboardDirty = true; fuelWarned = false; slowT = 0; resetFoot(); endPursuit(); closeTalk();
     resetBus();
     const need = trip.km * 0.3;
     bus.fuel = Math.min(veh.tank, need * 0.7 + 10); day.fuel = bus.fuel * FUEL_PRICE;
@@ -421,7 +514,7 @@
         add("Recette des courses", day.fares);
         add("Carburant", -day.fuel);
         if (day.fines) add("Accidents", -day.fines);
-        if (day.own) add("Entretien de ta Sotrama", -ENTRETIEN); else add("Versement au patron", -VERSEMENT);
+        if (day.own) add("Entretien de ton Sotrama", -ENTRETIEN); else add("Versement au patron", -VERSEMENT);
       }
     } else {
       add("Billets vendus", day.fares);
@@ -446,7 +539,7 @@
     return { lines, net };
   }
   function endDay(title) {
-    mode = "end"; keys.up = keys.down = false; resetFoot(); endPursuit();
+    mode = "end"; keys.up = keys.down = false; resetFoot(); endPursuit(); closeTalk();
     pending = settle();
     $("endDay").textContent = title || "Jour " + S.day + " terminé";
     $("endKicker").textContent = day.kind === "trip" ? "Fin du voyage" : "20 h";
@@ -473,20 +566,32 @@
   }
 
   /* ---------- driving ---------- */
+  // keyboard first; with mouse steering on, the mouse position left or right of the centre turns the wheel
+  function steerInput() {
+    const k = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
+    if (k || !mouse.steer || isTouch) return k;
+    return Math.abs(mouse.x) < 0.06 ? 0 : Math.max(-1, Math.min(1, -Math.sign(mouse.x) * (Math.abs(mouse.x) - 0.06) * 1.6));
+  }
   function fits(x, z, h) {
     const fx = Math.sin(h), fz = Math.cos(h), rx = -fz, rz = fx, L = veh.hl, W = veh.hw;
-    for (const [a, b] of [[L, W], [L, -W], [-L, W], [-L, -W], [0, W], [0, -W], [L / 2, W], [L / 2, -W], [-L / 2, W], [-L / 2, -W]]) if (!world.inRoad(x + fx * a + rx * b, z + fz * a + rz * b)) return false;
+    for (const [a, b] of [[L, W], [L, -W], [-L, W], [-L, -W], [0, W], [0, -W], [L / 2, W], [L / 2, -W], [-L / 2, W], [-L / 2, -W]]) if (!surfaceAt(x + fx * a + rx * b, z + fz * a + rz * b)) return false;
     return true;
   }
+  const surfaceAt = (x, z) => (world.drivable ? world.drivable(x, z) : world.inRoad(x, z) ? 2 : 0);
+  let shoulderShown = false;
   function updateBus(dt) {
-    const MAXV = veh.maxv * (day.energy <= 0 ? 0.8 : 1), dry = bus.fuel <= 0, lock = holdT > 0;
+    const offRoad = surfaceAt(bus.x, bus.z) === 1;
+    if (offRoad && !shoulderShown && Math.abs(bus.v) > 4) { shoulderShown = true; toast("Bas-côté : roule doucement"); }
+    if (!offRoad) shoulderShown = false;
+    const MAXV = offRoad ? Math.min(7, veh.maxv) : veh.maxv * (day.energy <= 0 ? 0.8 : 1), dry = bus.fuel <= 0, lock = holdT > 0;
+    if (offRoad && bus.v > MAXV) bus.v -= Math.min(bus.v - MAXV, 9 * dt);
     if (lock) { holdT -= dt; bus.v *= 0.85; }
     if (keys.up && !dry && !lock) bus.v += (bus.v >= 0 ? veh.acc : 14) * dt;
     if (keys.down) bus.v -= (bus.v > 0.4 ? 14 : dry ? 0 : 4) * dt;
     if (!keys.up && !keys.down || dry) bus.v -= Math.sign(bus.v) * Math.min(Math.abs(bus.v), 2.6 * dt);
     if (keys.brake) bus.v -= Math.sign(bus.v) * Math.min(Math.abs(bus.v), 20 * dt);
-    bus.v = Math.max(-6, Math.min(MAXV, bus.v));
-    const target = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
+    bus.v = Math.max(-6, Math.min(offRoad ? Math.max(MAXV, bus.v) : MAXV, bus.v));
+    const target = steerInput();
     bus.steer += (target - bus.steer) * Math.min(1, dt * 8);
     const turn = veh.type === "coach" ? 0.9 : 1.5;
     const grip = Math.max(-1, Math.min(1, bus.v / 6)) * (1 - 0.35 * Math.min(1, Math.abs(bus.v) / MAXV));
@@ -516,10 +621,10 @@
       if (ag.crash > 0) continue;
       const rx = ag.rx - bus.x, rz = ag.rz - bus.z, al = rx * fx + rz * fz, lt = rx * fz - rz * fx;
       if (Math.abs(al) < (veh.hl + ag.len / 2) * 0.9 && Math.abs(lt) < (veh.hw + ag.wid / 2) * 0.9 && Math.abs(bus.v) > 2.5 && crashCool <= 0) {
-        const fine = { moto: 500, taxi: 1000, car: 1000, suv: 1500, bus: 1000, truck: 2000, coach: 2000 }[ag.type];
+        const fine = { moto: 500, taxi: 1000, car: 1000, modern: 1500, suv: 1500, bus: 1000, truck: 2000, coach: 2000 }[ag.type];
         day.fines += fine; day.accidents++; crashCool = 1.5; bus.v *= -0.2; ag.crash = 2.4;
         thud(); popCash("−" + fmt(fine) + " F", true); SB.voice.say("doucement");
-        toast({ moto: "Accident avec une Djakarta", taxi: "Accrochage avec un taxi", car: "Accrochage avec une voiture", suv: "Accrochage avec un 4x4", bus: "Accrochage avec une Sotrama", truck: "Accrochage avec un camion", coach: "Accrochage avec un car" }[ag.type] + " : −" + fmt(fine) + " F", "bad");
+        toast({ moto: "Accident avec une Djakarta", taxi: "Accrochage avec un taxi", car: "Accrochage avec une voiture", modern: "Accrochage avec une berline", suv: "Accrochage avec un 4x4", bus: "Accrochage avec un Sotrama", truck: "Accrochage avec un camion", coach: "Accrochage avec un car" }[ag.type] + " : −" + fmt(fine) + " F", "bad");
       }
     }
   }
@@ -550,6 +655,7 @@
     const city = world.kind === "city";
     if (city) for (const s of world.stops) { s.spawnT -= dt; if (s.spawnT <= 0) { s.spawnT = rand(5, 12) / (helpers() ? 1.3 : 1); if (s.waiting.length < 12) addWaiting(s); } }
     if (!city) updateCheckpoints(dt); else updateCityPolice(dt);
+    haggleCool -= dt;
     if (foot) { atStop = null; return; }
     let near = null, nd = 1e9;
     for (const s of world.stops) { const d = Math.hypot(bus.x - s.zx, bus.z - s.zz); if (d < nd) { nd = d; near = s; } }
@@ -576,18 +682,18 @@
       }
       if (pickup) {
         const w = s.waiting.shift();
-        if (w.id >= 0 && w.x !== undefined) boardWalker(w); else people.release(w.id);
+        if (w.id >= 0 && w.x !== undefined) { boardWalker(w); if (apprentiActive() && Math.random() < 0.45) throwBag(w.x, w.z); } else people.release(w.id);
         const hidden = w.slot >= 0 ? s.waiting.find((x) => x.slot < 0) : null;
         if (hidden) {
           const id = people.alloc();
           if (id >= 0) { const [a, o] = SLOTS[w.slot]; hidden.x = s.sx + s.dx * a - s.nx * (1.4 - o); hidden.z = s.sz + s.dz * a - s.nz * (1.4 - o); people.set(id, hidden.x, hidden.z, Math.atan2(-s.nx, -s.nz)); hidden.slot = w.slot; hidden.id = id; }
         }
         people.commit();
-        if (city) { const dest = pickDest(s); onboard.push({ dest, fare: fareFor(s.i, dest) }); }
-        else onboard.push({ dest: w.dest, fare: tripFare(day.trip, s.s, world.stops[w.dest].s) });
-        onboardDirty = true; tick();
+        const p = city ? (() => { const dest = pickDest(s); return { dest, fare: fareFor(s.i, dest) }; })() : { dest: w.dest, fare: tripFare(day.trip, s.s, world.stops[w.dest].s) };
+        if (haggleCool <= 0 && Math.random() < (city ? 0.12 : 0.05)) { haggleCool = 40; haggle(p, s); return; }
+        onboard.push(p); onboardDirty = true; tick();
         if (Math.random() < 0.18) { const h = 6 + (city ? elapsed / DAY : (bus.z === 0 ? 0 : -bus.z / world.L)) * 14; SB.voice.say(h < 12 ? "bonjour_matin" : h < 16 ? "bonjour_jour" : "bonjour_soir"); }
-      } else if (s.waiting.length && onboard.length >= veh.cap && !fullShown) { fullShown = true; toast(veh.label + " pleine : " + veh.cap + " places"); SB.voice.say("plein"); }
+      } else if (s.waiting.length && onboard.length >= veh.cap && !fullShown) { fullShown = true; toast(veh.label + " plein : " + veh.cap + " places"); SB.voice.say("plein"); }
       if (!city && s.i === last && !onboard.length) arrive();
     } else if ((drop || pickup) && !hinted && Math.abs(bus.v) > 3) { hinted = true; toast("Arrête-toi dans le cercle"); }
   }
@@ -597,7 +703,7 @@
       if (cp.state !== "pending") continue;
       const d = Math.hypot(bus.x - cp.zx, bus.z - cp.zz);
       if (d < 16) {
-        if (!cp.greeted) { cp.greeted = true; SB.voice.say(cp.kind === "police" ? "police_papiers" : "peage", null, true); }
+        if (!cp.greeted) { cp.greeted = true; if (cp.kind === "police") whistle(); SB.voice.say(cp.kind === "police" ? "police_papiers" : "peage", null, true); }
         if (Math.abs(bus.v) < 1) { cp.wait += dt; if (cp.wait > 1.4) {
           cp.state = "ok";
           if (cp.kind === "peage") { day.toll += 2000; popCash("−2 000 F", true); toast("Péage payé : 2 000 F"); }
@@ -605,8 +711,8 @@
         } }
       } else if (sb > cp.s + 25) {
         cp.state = "fined";
-        if (cp.kind === "police") startPursuit(cp.people[0][0], cp.people[0][1], "contrôle de police non respecté", 3000);
-        else { day.fines += 2500; popCash("−2 500 F", true); SB.voice.say("police_amende", null, true); toast("Passage en force au péage : −2 500 F", "bad"); }
+        if (cp.kind === "police") startPursuit(cp.people[0][0], cp.people[0][1], "contrôle de police non respecté", 2500);
+        else { day.fines += 2000; popCash("−2 000 F", true); SB.voice.say("police_amende", null, true); toast("Passage en force au péage : −2 000 F", "bad"); }
       }
     }
   }
@@ -648,7 +754,7 @@
       if (d > N.disc + 2.5 || d < N.disc - 2 || dx * fx + dz * fz <= 0) continue;
       if (lightState(L, Math.abs(fx) > Math.abs(fz) ? "x" : "z") !== "red") continue;
       redCool = 5;
-      if (L.cop) startPursuit(L.cop[0], L.cop[1], "feu rouge grillé", 2500);
+      if (L.cop) startPursuit(L.cop[0], L.cop[1], "feu rouge grillé", 2000);
       else { toast("Feu rouge grillé !", "bad"); if (onboard.length) SB.voice.say("doucement"); }
     }
   }
@@ -660,11 +766,11 @@
       const d = Math.hypot(bus.x - cp.zx, bus.z - cp.zz);
       if (d < 14 && !foot) {
         cp.inside = true;
-        if (!cp.greeted) { cp.greeted = true; SB.voice.say("police_papiers", null, true); }
+        if (!cp.greeted) { cp.greeted = true; whistle(); SB.voice.say("police_papiers", null, true); }
         if (Math.abs(bus.v) < 1) { cp.wait += dt; if (cp.wait > 1.4) { cp.state = "ok"; cp.cool = 150; SB.voice.say("police_ok", null, true); toast("Contrôle de police : papiers en règle"); } }
       } else if (cp.inside && d > 20) {
         Object.assign(cp, { inside: false, state: "fined", cool: 60 });
-        startPursuit(cp.people[0][0], cp.people[0][1], "contrôle de police non respecté", 2500);
+        startPursuit(cp.people[0][0], cp.people[0][1], "contrôle de police non respecté", 2000);
       }
     }
   }
@@ -676,24 +782,26 @@
     if (!policeMesh) { policeMesh = SB.makePolice(); scene.add(policeMesh); }
     police = { x, z, h: Math.atan2(bus.x - x, bus.z - z), v: 4, trail: [[bus.x, bus.z]], ti: 0, reason, fine, closeT: 0, stopT: 0, farT: 0, done: false, leaveT: 0, warned: false };
     policeMesh.visible = true;
-    SB.voice.say("police_stop", null, true); toast("Coup de sifflet ! La police te poursuit : arrête-toi sur le côté", "bad");
+    whistle(); SB.voice.say("police_stop", null, true); toast("Coup de sifflet ! La police te poursuit : arrête-toi sur le côté", "bad");
   }
-  function endPursuit() { police = null; holdT = 0; if (policeMesh) policeMesh.visible = false; }
+  function endPursuit() { police = null; holdT = 0; if (policeMesh) policeMesh.visible = false; if (talk && mode !== "talk") { talk = null; $("talk").hidden = true; } }
+  function closeTalk() { talk = null; $("talk").hidden = true; }
   function pullOver(refused) {
-    const P = police, fine = refused ? P.fine * 2 : P.fine;
-    day.fines += fine; popCash("−" + fmt(fine) + " F", true);
-    if (refused) { bus.v = 0; holdT = 2.5; SB.voice.say("police_refus", null, true); toast("Refus d'obtempérer : la police te bloque · amende " + fmt(fine) + " F", "bad"); }
-    else { SB.voice.say(P.reason === "feu rouge grillé" ? "police_feu" : "police_amende", null, true); toast("Contrôle : " + P.reason + " · amende " + fmt(fine) + " F", "bad"); }
-    // the police car pulls out and drives off past the minibus
-    P.done = true; P.leaveT = 7; P.h = bus.h; P.x += Math.cos(bus.h) * 3.2; P.z -= Math.sin(bus.h) * 3.2; P.v = 3;
+    const P = police; P.done = true; P.v = 0;
+    if (refused) {
+      const fine = P.fine * 2; day.fines += fine; popCash("−" + fmt(fine) + " F", true); bus.v = 0; holdT = 2.5;
+      SB.voice.say("police_refus", null, true); toast("Refus d'obtempérer : la police te bloque · amende " + fmt(fine) + " F", "bad"); policeDrive();
+    } else policeTalk(P);
   }
   function updatePolice(dt) {
     if (!police) return;
     const P = police;
     policeMesh.userData.flash(time);
     if (P.done) {
-      P.leaveT -= dt; P.v = Math.min(15, P.v + dt * 4); P.x += Math.sin(P.h) * P.v * dt; P.z += Math.cos(P.h) * P.v * dt;
-      if (P.leaveT <= 0) endPursuit();
+      if (P.leaving) { // the police car pulls out and drives off past the minibus
+        P.leaveT -= dt; P.v = Math.min(15, P.v + dt * 4); P.x += Math.sin(P.h) * P.v * dt; P.z += Math.cos(P.h) * P.v * dt;
+        if (P.leaveT <= 0) endPursuit();
+      }
     } else {
       const last = P.trail[P.trail.length - 1];
       if (Math.hypot(bus.x - last[0], bus.z - last[1]) > 3) P.trail.push([bus.x, bus.z]);
@@ -726,7 +834,7 @@
 
   /* ---------- hunger ---------- */
   function updateEnergy(dt) {
-    day.energy = Math.max(0, day.energy - (dt * 100) / 216);
+    day.energy = Math.max(0, day.energy - (dt * 100) / (DAY * 1.6));
     if (!hungerWarned && day.energy < 25) { hungerWarned = true; SB.voice.say("faim", null, true); toast("Tu as faim : arrête-toi manger (restaurant, maquis, vendeuse)", "bad"); }
     if (!tiredShown && day.energy <= 0) { tiredShown = true; toast("Tu es épuisé : tu conduis moins vite tant que tu n'as pas mangé", "bad"); }
   }
@@ -765,16 +873,17 @@
   }
   function footAction() {
     if (!foot) return null;
-    if (doorDist() < 3.2) return { kind: "in", label: veh.type === "coach" ? "Monter dans ton car" : "Monter dans ta Sotrama" };
+    if (doorDist() < 3.2) return { kind: "in", label: veh.type === "coach" ? "Monter dans ton car" : "Monter dans ton Sotrama" };
     const f = nearFood();
-    if (f) return { kind: "food", f, label: (EAT.includes(f.kind) ? "Manger " : "Acheter ") + f.item + " · " + fmt(f.price) + " F" };
+    if (f) return { kind: "food", f, label: f.menu ? "Acheter à la boutique" : (EAT.includes(f.kind) ? "Manger " : "Acheter ") + f.item + " · " + fmt(f.price) + " F" };
     return null;
   }
-  function buyFood(f) {
-    if (cash() + S.savings < f.price) { toast("Pas assez d'argent", "bad"); return; }
-    day.food += f.price; day.energy = Math.min(100, day.energy + f.energy);
+  function buyFood(f, price) {
+    if (price === undefined) price = f.price;
+    if (cash() + S.savings < price) { toast("Pas assez d'argent", "bad"); return; }
+    day.food += price; day.energy = Math.min(100, day.energy + f.energy);
     if (day.energy > 40) { hungerWarned = false; tiredShown = false; }
-    popCash("−" + fmt(f.price) + " F", true); ding(); SB.voice.say("bon_appetit", null, true);
+    popCash("−" + fmt(price) + " F", true); ding(); SB.voice.say("bon_appetit", null, true);
     toast((EAT.includes(f.kind) ? "Tu manges " : "Tu achètes ") + f.item + " · énergie " + Math.round(day.energy) + " %");
   }
   function doAction() {
@@ -782,10 +891,10 @@
     if (!foot) { toggleFoot(); return; }
     const a = footAction();
     if (!a) { toast("Approche-toi de la portière, d'un restaurant ou d'une vendeuse"); return; }
-    if (a.kind === "in") toggleFoot(); else buyFood(a.f);
+    if (a.kind === "in") toggleFoot(); else foodTalk(a.f);
   }
   function updateWalker(dt) {
-    const turn = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
+    const turn = steerInput();
     foot.h += turn * 2.6 * dt;
     const target = keys.up ? 3.4 : keys.down ? -1.6 : 0;
     foot.v += (target - foot.v) * Math.min(1, dt * 8);
@@ -824,7 +933,8 @@
   }
 
   /* ---------- sky ---------- */
-  const KEYS = [[0, 0x6d86ad, 0xf0b07a, 0xffb27a, 1.4, 0.5], [0.14, 0x7c9fc6, 0xecd6b2, 0xfff0d8, 2.4, 0.8], [0.5, 0x86a9cf, 0xeadbbd, 0xfff6e8, 2.7, 0.9], [0.84, 0x7a8fb8, 0xeec08f, 0xffc890, 2.2, 0.75], [1, 0x47507a, 0xd98a64, 0xff8a50, 0.9, 0.4]];
+  // a bright day: a short golden morning, full light until late afternoon, sunset only at the very end
+  const KEYS = [[0, 0x7f9cc4, 0xf0c896, 0xffd8a8, 2.2, 0.8], [0.06, 0x86a9cf, 0xeadbbd, 0xfff3e2, 2.7, 0.95], [0.5, 0x86a9cf, 0xeadbbd, 0xfff6e8, 2.9, 1.0], [0.88, 0x7f9ec8, 0xecd0a4, 0xffe2b8, 2.6, 0.9], [1, 0x66789f, 0xe3a676, 0xffa868, 1.7, 0.65]];
   const cA = new THREE.Color(), cB = new THREE.Color(), zen = new THREE.Color(), hor = new THREE.Color(), tmp = new THREE.Color();
   function updateSky(t) {
     let i = 0; while (i < KEYS.length - 2 && t > KEYS[i + 1][0]) i++;
@@ -870,6 +980,13 @@
     else if (camMode === 2) { p = [bus.x - fx * 26 * big, 14 * big, bus.z - fz * 26 * big]; l = [bus.x + fx * 10, 1.5, bus.z + fz * 10]; }
     else if (camMode === 3) { const fwd = veh.type === "coach" ? 5.4 : 1.9, up = veh.type === "coach" ? 2.9 : 2.25, side = veh.type === "coach" ? 0.7 : 0.55; p = [bus.x + fx * fwd + fz * side, up, bus.z + fz * fwd - fx * side]; l = [bus.x + fx * 30 + fz * side, 1.6, bus.z + fz * 30 - fx * side]; snap = true; }
     else { p = [bus.x - fx * 12.5 * big, 6 * big, bus.z - fz * 12.5 * big]; l = [bus.x + fx * 7, 1.6, bus.z + fz * 7]; }
+    if (!mouse.look) { const e = Math.min(1, dt * 1.2); mouse.yaw *= 1 - e; mouse.pitch *= 1 - e; }
+    if (day && mode !== "garage" && (Math.abs(mouse.yaw) > 0.001 || Math.abs(mouse.pitch) > 0.001 || mouse.zoom !== 1)) {
+      const F = foot || bus, cy = Math.cos(mouse.yaw), sy = Math.sin(mouse.yaw);
+      if (camMode === 3) { const dx = l[0] - p[0], dz = l[2] - p[2]; l = [p[0] + dx * cy + dz * sy, l[1] - mouse.pitch * 14, p[2] - dx * sy + dz * cy]; }
+      else { const dx = (p[0] - F.x) * mouse.zoom, dz = (p[2] - F.z) * mouse.zoom; p = [F.x + dx * cy + dz * sy, Math.max(1.2, p[1] * mouse.zoom + mouse.pitch * 9), F.z - dx * sy + dz * cy]; l = [F.x, l[1], F.z]; }
+      snap = snap || mouse.look;
+    }
     if (!camInit) { camInit = true; snap = true; }
     const k = snap ? 1 : 1 - Math.exp(-dt * (mode === "garage" ? 2 : 4.5));
     camPos.x += (p[0] - camPos.x) * k; camPos.y += (p[1] - camPos.y) * k; camPos.z += (p[2] - camPos.z) * k;
@@ -881,6 +998,68 @@
     const want = mode === "garage" && window.innerWidth > 760 ? Math.round(Math.min(260, window.innerWidth * 0.2)) : 0;
     if (want !== viewShift) { viewShift = want; if (want) camera.setViewOffset(window.innerWidth, window.innerHeight, -want, 0, window.innerWidth, window.innerHeight); else camera.clearViewOffset(); }
   }
+
+  /* ---------- GPS: a marker set on the map, the shortest way along the roads, the next turn ---------- */
+  let gps = null, gpsT = 0, gpsBeam = null;
+  function setMarker(x, z) {
+    const nr = world.nearestRoad(x, z, 250); if (!nr) return;
+    const rd = nr.rd, A = world.nodes[rd.a], t = Math.max(0, Math.min(rd.len, (x - A.x) * rd.dx + (z - A.z) * rd.dz));
+    const mx = A.x + rd.dx * t, mz = A.z + rd.dz * t;
+    if (gps && Math.hypot(gps.x - mx, gps.z - mz) < 25) { clearMarker(); return; }
+    let name = "Ton marqueur", bd = 140;
+    for (const s of world.stops) { const d = Math.hypot(s.zx - mx, s.zz - mz); if (d < bd) { bd = d; name = "Vers " + s.name.replace("Gare routière de ", "la gare de "); } }
+    for (const lm of world.landmarks || []) { const d = Math.hypot(lm.x - mx, lm.z - mz); if (d < Math.min(bd, 90)) { bd = d; name = "Vers " + lm.name; } }
+    gps = { x: mx, z: mz, rd, name, path: null, turn: "", dist: 0 }; gpsT = 0;
+    if (!gpsBeam) { gpsBeam = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 60, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0x3a8bff, transparent: true, opacity: 0.35, depthWrite: false, fog: false, toneMapped: false })); scene.add(gpsBeam); }
+    gpsBeam.visible = true; gpsBeam.position.set(mx, 30, mz);
+    updateGps(0, true);
+  }
+  function clearMarker() { gps = null; if (gpsBeam) gpsBeam.visible = false; }
+  function findPath(fx, fz, target) {
+    const N = world.nodes, from = world.nearestRoad(fx, fz, 80); if (!from) return null;
+    if (from.rd === target.rd) return [[fx, fz], [target.x, target.z]];
+    const n = N.length, dist = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1), done = new Uint8Array(n);
+    for (const k of [from.rd.a, from.rd.b]) dist[k] = Math.hypot(N[k].x - fx, N[k].z - fz);
+    for (;;) {
+      let u = -1, best = Infinity; for (let i = 0; i < n; i++) if (!done[i] && dist[i] < best) { best = dist[i]; u = i; }
+      if (u < 0) break; done[u] = 1;
+      for (const id of N[u].roads) { const r = world.roads[id], v = r.a === u ? r.b : r.a, nd = dist[u] + r.len; if (nd < dist[v]) { dist[v] = nd; prev[v] = u; } }
+    }
+    const ends = [target.rd.a, target.rd.b].map((k) => [k, dist[k] + Math.hypot(N[k].x - target.x, N[k].z - target.z)]).sort((a, b) => a[1] - b[1]);
+    if (!isFinite(ends[0][1])) return null;
+    const list = []; for (let k = ends[0][0]; k >= 0; k = prev[k]) list.unshift(k);
+    const pts = list.map((k) => [N[k].x, N[k].z]).filter(([x, z], i) => i > 0 || Math.hypot(x - fx, z - fz) > 6);  // a node under the wheels is already passed
+    return [[fx, fz], ...pts, [target.x, target.z]];
+  }
+  function updateGps(dt, force) {
+    if (!gps || !day) return;
+    const F = foot || bus;
+    if (Math.hypot(F.x - gps.x, F.z - gps.z) < 14) { toast("Tu es arrivé à ton marqueur"); ding(); clearMarker(); return; }
+    gpsT -= dt; if (gpsT > 0 && !force) return; gpsT = 0.6;
+    const P = findPath(F.x, F.z, gps); gps.path = P; if (!P) return;
+    let along = 0; gps.turn = ""; gps.dist = 0;
+    for (let k = 1; k < P.length; k++) gps.dist += Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]);
+    for (let k = 1; k < P.length - 1; k++) {
+      const ax = P[k][0] - P[k - 1][0], az = P[k][1] - P[k - 1][1], bx = P[k + 1][0] - P[k][0], bz = P[k + 1][1] - P[k][1], la = Math.hypot(ax, az) || 1, lb = Math.hypot(bx, bz) || 1;
+      along += la;
+      const side = (ax * bz - az * bx) / (la * lb), node = world.nodes.find((q) => q.x === P[k][0] && q.z === P[k][1]);
+      if (Math.abs(side) < 0.42) continue;
+      const where = along < 10 ? "maintenant" : "dans " + (along >= 1000 ? (along / 1000).toFixed(1).replace(".", ",") + " km" : Math.round(along / 10) * 10 + " m");
+      gps.turn = (node && node.r ? "au rond-point, sors " : "") + (side > 0 ? "à droite " : "à gauche ") + where;
+      break;
+    }
+    if (!gps.turn) gps.turn = "tout droit";
+  }
+  function drawPath(g, tx, ty, w) {
+    if (!gps || !gps.path) return;
+    g.strokeStyle = "rgba(58,139,255,0.9)"; g.lineWidth = w; g.lineJoin = "round"; g.lineCap = "round";
+    g.beginPath(); gps.path.forEach(([x, z], i) => (i ? g.lineTo(tx(x), ty(z)) : g.moveTo(tx(x), ty(z)))); g.stroke();
+  }
+  function drawPin(g, x, y, u) {
+    g.fillStyle = "#3a8bff"; g.strokeStyle = "#f7ecd8"; g.lineWidth = 2 * u;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x - 6 * u, y - 12 * u); g.arc(x, y - 14 * u, 6.5 * u, Math.PI * 0.85, Math.PI * 0.15); g.closePath(); g.fill(); g.stroke();
+  }
+  let bigTf = null;
 
   /* ---------- maps ---------- */
   const radar = $("radar"), rctx = radar.getContext("2d"), big = $("bigMap"), bctx = big.getContext("2d");
@@ -901,7 +1080,8 @@
     const W = radar.width, H = radar.height, R = world.kind === "route" ? 400 : 260, s = W / (2 * R), g = rctx;
     g.fillStyle = world.kind === "route" ? "#5b4a2c" : "#3a2618"; g.fillRect(0, 0, W, H);
     const F = foot || bus, tx = (x) => W / 2 + (x - F.x) * s, ty = (z) => H / 2 + (z - F.z) * s;
-    drawRoads(g, tx, ty, s, 1);
+    g.save(); g.translate(W / 2, H / 2); g.rotate(F.h - Math.PI); g.translate(-W / 2, -H / 2); // the vehicle always points up
+    drawRoads(g, tx, ty, s, 1); drawPath(g, tx, ty, 3.5 * (W / 170));
     const dests = new Set(onboard.map((p) => p.dest)), u = W / 170;
     for (const st of world.stations) { g.fillStyle = "#e25a3c"; g.beginPath(); g.arc(clampX(tx(st.zx), W), clampX(ty(st.zz), H), 4 * u, 0, 7); g.fill(); }
     for (const c of world.checkpoints || []) if (c.state === "pending") { g.fillStyle = "#5aa0ff"; g.beginPath(); g.arc(clampX(tx(c.zx), W), clampX(ty(c.zz), H), 4 * u, 0, 7); g.fill(); }
@@ -912,13 +1092,27 @@
     });
     if (foot) { g.fillStyle = "#f7ecd8"; g.fillRect(tx(bus.x) - 4 * u, ty(bus.z) - 4 * u, 8 * u, 8 * u); }
     if (police) { g.fillStyle = Math.floor(time * 6) % 2 ? "#ff3030" : "#3a6bff"; g.beginPath(); g.arc(clampX(tx(police.x), W), clampX(ty(police.z), H), 6 * u, 0, 7); g.fill(); }
-    arrowAt(g, W / 2, H / 2, 8 * u, u);
+    if (gps) drawPin(g, clampX(tx(gps.x), W), clampX(ty(gps.z), H) + 6 * u, u * 0.8);
+    g.restore();
+    const r = 8 * u; g.fillStyle = "#1f8a4c"; g.strokeStyle = "#f7ecd8"; g.lineWidth = 1.5 * u;
+    g.beginPath(); g.moveTo(W / 2, H / 2 - r); g.lineTo(W / 2 + r * 0.6, H / 2 + r * 0.6); g.lineTo(W / 2 - r * 0.6, H / 2 + r * 0.6); g.closePath(); g.fill(); g.stroke();
   }
   function drawBigMap() {
     const W = big.width, H = big.height, b = world.bounds, s = Math.min(W / (b.x1 - b.x0), H / (b.z1 - b.z0)) * 0.96;
     const ox = (W - (b.x1 - b.x0) * s) / 2, oy = (H - (b.z1 - b.z0) * s) / 2, tx = (x) => ox + (x - b.x0) * s, ty = (z) => oy + (z - b.z0) * s, g = bctx, u = Math.min(W, H) / 600;
+    bigTf = { s, ox, oy, b };
     g.fillStyle = world.kind === "route" ? "#5b4a2c" : "#3a2618"; g.fillRect(0, 0, W, H);
     drawRoads(g, tx, ty, s, 1.2);
+    // names of the boulevards and avenues along their longest piece
+    const longest = {};
+    for (const rd of world.roads) if (rd.name && (!longest[rd.name] || rd.len > longest[rd.name].len)) longest[rd.name] = rd;
+    g.save(); g.fillStyle = "rgba(247,236,216,0.8)"; g.font = `italic 600 ${Math.round(11 * u)}px "Barlow", sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+    for (const [name, rd] of Object.entries(longest)) {
+      const A = world.nodes[rd.a], B = world.nodes[rd.b]; let a = Math.atan2(ty(B.z) - ty(A.z), tx(B.x) - tx(A.x)); if (a > Math.PI / 2) a -= Math.PI; if (a < -Math.PI / 2) a += Math.PI;
+      g.save(); g.translate((tx(A.x) + tx(B.x)) / 2, (ty(A.z) + ty(B.z)) / 2); g.rotate(a); g.fillText(name, 0, -(rd.w * s * 0.6 + 7 * u)); g.restore();
+    }
+    g.restore();
+    drawPath(g, tx, ty, 4 * u);
     const dests = new Set(onboard.map((p) => p.dest));
     g.textAlign = "left"; g.textBaseline = "middle";
     world.stops.forEach((st, i) => {
@@ -928,14 +1122,18 @@
       g.font = `600 ${Math.round(12 * u)}px "Barlow Condensed", sans-serif`; g.fillText(st.name + (st.waiting.length ? " · " + st.waiting.length : ""), x + 8 * u, y);
     });
     for (const st of world.stations) { g.fillStyle = "#e25a3c"; g.beginPath(); g.arc(tx(st.zx), ty(st.zz), 4.5 * u, 0, 7); g.fill(); g.fillText("Station", tx(st.zx) + 8 * u, ty(st.zz)); }
-    for (const c of world.checkpoints || []) { g.fillStyle = "#5aa0ff"; g.beginPath(); g.arc(tx(c.zx), ty(c.zz), 4.5 * u, 0, 7); g.fill(); g.fillText(c.kind === "police" ? "Contrôle de police" : "Péage", tx(c.zx) + 8 * u, ty(c.zz)); }
+    for (const c of world.checkpoints || []) { g.fillStyle = "#5aa0ff"; g.beginPath(); g.arc(tx(c.zx), ty(c.zz), 4.5 * u, 0, 7); g.fill(); g.fillText(c.kind === "police" ? "Police" : "Péage", tx(c.zx) + 8 * u, ty(c.zz)); }
     if (world.kind === "city") { g.fillStyle = "rgba(247,236,216,0.6)"; g.font = `700 ${Math.round(13 * u)}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.fillText("FLEUVE NIGER", tx(-650), ty(0)); g.fillText("RIVE GAUCHE", tx(-650), ty(-300)); g.fillText("RIVE DROITE", tx(-650), ty(260)); }
     for (const lm of world.landmarks || []) {
       if (lm.kind === "hospital") { const x = tx(lm.x), y = ty(lm.z); g.fillStyle = "#f7ecd8"; g.fillRect(x - 7 * u, y - 7 * u, 14 * u, 14 * u); g.fillStyle = "#c0392b"; g.fillRect(x - 1.8 * u, y - 5.5 * u, 3.6 * u, 11 * u); g.fillRect(x - 5.5 * u, y - 1.8 * u, 11 * u, 3.6 * u); g.fillStyle = "#f7ecd8"; g.fillText("Hôpital " + lm.name, x + 10 * u, y); }
       else if (lm.kind === "food") { g.fillStyle = "#e67e22"; g.beginPath(); g.arc(tx(lm.x), ty(lm.z), 3 * u, 0, 7); g.fill(); }
+      else if (lm.kind === "monument") { const x = tx(lm.x), y = ty(lm.z); g.fillStyle = "#f2b233"; g.beginPath(); g.moveTo(x, y - 7 * u); g.lineTo(x + 5 * u, y + 5 * u); g.lineTo(x - 5 * u, y + 5 * u); g.closePath(); g.fill(); g.save(); g.fillStyle = "#f2b233"; g.font = `italic 700 ${Math.round(12 * u)}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.fillText(lm.name, x, y - 14 * u); g.restore(); }
     }
     if (foot) { g.fillStyle = "#f7ecd8"; g.fillRect(tx(bus.x) - 4 * u, ty(bus.z) - 4 * u, 8 * u, 8 * u); }
+    if (gps) drawPin(g, tx(gps.x), ty(gps.z), u * 1.2);
     const F = foot || bus; arrowAt(g, tx(F.x), ty(F.z), 10 * u, u);
+    g.fillStyle = "rgba(22,17,12,0.75)"; g.fillRect(8 * u, 8 * u, 330 * u, 26 * u); g.fillStyle = "#f7ecd8"; g.font = `600 ${Math.round(13 * u)}px "Barlow", sans-serif`; g.textAlign = "left";
+    g.fillText(gps ? "Touche ton marqueur pour l'enlever" : "Touche la carte pour poser un marqueur GPS", 16 * u, 21 * u);
   }
   function toggleMap(force) {
     const open = force !== undefined ? force : $("mapBox").hidden;
@@ -954,11 +1152,12 @@
     box.innerHTML = `<h2>À bord · ${onboard.length}</h2><ul>${Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([d, n]) => `<li><span>${esc(world.stops[d].name.replace("Gare routière de ", ""))}</span><b>${n}</b></li>`).join("")}</ul>`;
   }
   function guideTarget() {
-    if (foot) return [{ zx: bus.x, zz: bus.z, name: veh.type === "coach" ? "Ton car" : "Ta Sotrama" }, "Tu es à pied · retour à"];
+    if (foot) return [{ zx: bus.x, zz: bus.z, name: veh.type === "coach" ? "Ton car" : "Ton Sotrama" }, "Tu es à pied · retour à"];
     if (bus.fuel < veh.tank * 0.12 && world.stations.length) {
       let bd = 1e9, t = null; for (const st of world.stations) { const d = Math.hypot(st.zx - bus.x, st.zz - bus.z); if (d < bd) { bd = d; t = { zx: st.zx, zz: st.zz, name: "Station" }; } }
       return [t, "Carburant :"];
     }
+    if (gps && gps.path) { const F = foot || bus, nx = gps.path.find((q, i) => i > 0 && Math.hypot(q[0] - F.x, q[1] - F.z) > 8) || [gps.x, gps.z]; return [{ zx: nx[0], zz: nx[1], name: gps.name, gpsDist: gps.dist }, "GPS · " + gps.turn]; }
     if (world.kind === "route") {
       const sb = world.progress(bus.x, bus.z);
       const cp = world.checkpoints.find((c) => c.state === "pending" && c.s > sb - 20);
@@ -991,6 +1190,8 @@
     const act = foot ? footAction() : null, lbl = act ? act.label : "";
     if (cache.interact !== lbl) { cache.interact = lbl; $("interact").hidden = !act; $("interact").textContent = lbl; }
     setText("btnFoot", foot ? "Monter" : "Descendre");
+    $("btnQuiet").hidden = foot || onboard.length < 4;
+    $("msteer").hidden = !mouse.steer || isTouch; if (mouse.steer) $("msteerDot").style.left = ((Math.max(-1, Math.min(1, mouse.x)) + 1) * 50).toFixed(1) + "%";
     const f = bus.fuel / veh.tank;
     $("fuelBar").style.width = (f * 100).toFixed(1) + "%"; $("fuel").classList.toggle("low", f < 0.12); setText("fuelText", Math.round(bus.fuel) + " L");
     if (onboardDirty) { onboardDirty = false; renderOnboard(); }
@@ -998,7 +1199,7 @@
     $("guide").hidden = !target;
     if (target) {
       setText("guideLabel", label); setText("guideName", target.name.replace("Gare routière de ", "Gare de "));
-      const dx = target.zx - F.x, dz = target.zz - F.z, dist = Math.hypot(dx, dz);
+      const dx = target.zx - F.x, dz = target.zz - F.z, dist = target.gpsDist || Math.hypot(dx, dz);
       setText("guideDist", dist < 10 ? "Tu y es" : dist >= 1000 ? (dist / 1000).toFixed(1).replace(".", ",") + " km" : Math.round(dist / 10) * 10 + " m");
       const fx = Math.sin(F.h), fz = Math.cos(F.h);
       $("arrow").style.transform = "rotate(" + Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz).toFixed(3) + "rad)";
@@ -1007,13 +1208,108 @@
     if (toastT > 0) { toastT -= dt; if (toastT <= 0) $("toast").classList.remove("show"); }
     drawRadar();
   }
+  /* ---------- talking: haggling with passengers and vendors, explaining yourself to the police ---------- */
+  let talk = null, haggleCool = 20;
+  const cap1 = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  function ask(who, text, options, spoken) {
+    talk = { options }; mode = "talk"; for (const k in keys) keys[k] = false;
+    if (spoken !== false) SB.voice.sayText(who, text, false);
+    $("talkWho").textContent = who; $("talkText").textContent = text;
+    $("talkOpts").innerHTML = options.map((o, i) => `<button type="button" class="small${i ? " ghost" : ""}" data-opt="${i}"><kbd>${i + 1}</kbd>${esc(o.label)}</button>`).join("");
+    $("talk").hidden = false;
+  }
+  function answer(i) {
+    if (!talk || !talk.options[i]) return;
+    const o = talk.options[i]; talk = null; $("talk").hidden = true; mode = "play";
+    initAudio(); o.fn();
+  }
+  // some passengers find the fare too high
+  // a passenger short of money talks with the apprenti at the door: he only gets in if they agree
+  const tr = (fr, bm) => SB.voice.tr(fr, bm);
+  function haggle(p, s) {
+    const step = p.fare >= 1000 ? 100 : 25, offer = Math.round((p.fare * 0.8) / step) * step, mid = Math.round((p.fare + offer) / 2 / step) * step;
+    const who = Math.random() < 0.5 ? "Passager" : "Passagère", dest = world.stops[p.dest].name.replace("Gare routière de ", "");
+    ask(who + " à l'apprenti", tr(`Apprenti, je n'ai que ${fmt(offer)} F pour aller à ${dest}. Laisse-moi monter !`, `Apranti, ${fmt(offer)} F dɔrɔn de bɛ n bolo ${dest} kama. N to n ka don !`), [
+      { label: `L'apprenti accepte : « Monte pour ${fmt(offer)} F »`, fn: () => board(p, offer, who, tr("Merci, apprenti !", "I ni ce, apranti !")) },
+      { label: `L'apprenti discute : « Donne ${fmt(mid)} F et monte »`, fn: () => (Math.random() < 0.7 ? board(p, mid, who, tr(`Bon… voilà ${fmt(mid)} F.`, `A ka ɲi… ${fmt(mid)} F filɛ.`)) : stays(s, who, tr("Non, j'attends un autre Sotrama.", "Ayi, n bɛ sotarama wɛrɛ makɔnɔ."))) },
+      { label: `L'apprenti refuse : « C'est ${fmt(p.fare)} F, sinon tu attends »`, fn: () => (Math.random() < 0.45 ? board(p, p.fare, who, tr(`Bon, bon… tiens tes ${fmt(p.fare)} F.`, `A ka ɲi… ${fmt(p.fare)} F filɛ.`)) : stays(s, who, tr("Trop cher ! J'attends le prochain.", "A sɔngɔ ka gɛlɛn ! N bɛ nata kɔnɔ."))) },
+    ]);
+  }
+  function board(p, fare, who, line) { p.fare = fare; onboard.push(p); onboardDirty = true; tick(); SB.voice.sayText(who, line); }
+  function stays(s, who, line) { addWalker(s); SB.voice.sayText(who, line); }
+
+  /* ---------- passengers chatting, and asking them to keep quiet ---------- */
+  const CHAT = [
+    [["Tu as vu le match hier ? Le Stade Malien a encore gagné !", "I ye matsi ye kunun wa ? Stade ye se tugun !"], ["Ah non, moi je suis pour le Djoliba !", "Ayi, ne ye Djoliba ta ye !"]],
+    [["Au Grand Marché, le sac de riz a encore augmenté.", "Sugu ba la, malo bɔrɔ sɔngɔ yɛlɛla tugun."], ["C'est vrai, tout est cher maintenant.", "Tiɲɛ don, fɛn bɛɛ sɔngɔ ka gɛlɛn sisan."]],
+    [["Il fait chaud aujourd'hui !", "Funteni ka bon bi dɛ !"], ["Avec cette chaleur, il faut boire beaucoup d'eau.", "Funteni in na, ji caman min."]],
+    [["Ma fille se marie samedi, vous êtes tous invités !", "N denmuso bɛ furu sibiridon, aw bɛɛ welelen don !"], ["Que Dieu bénisse le mariage !", "Ala ka furu duba !"]],
+    [["Le courant a encore été coupé chez nous cette nuit.", "Kuran tigɛra tugun an fɛ su fɛ."], ["Chez nous aussi, toute la nuit !", "An fɛ fana, su bɛɛ !"]],
+    [["Chauffeur, mets-nous un peu de musique !", "Sofɛri, donkili dɔ da an ye !"], ["Oui, un bon morceau mandingue !", "Ɔwɔ, Manden donkili ɲuman dɔ !"]],
+    [["Inch'Allah la saison des pluies sera bonne cette année.", "Ni Ala sɔnna, samiya bɛna ɲi san in na."], ["Amina !", "Amiina !"]],
+    [["Tu as entendu ? Le prix du transport va augmenter.", "I ye a mɛn wa ? Taama sɔngɔ bɛna yɛlɛ."], ["Encore ? Ça ne finit jamais !", "Tugun ? A tɛ ban abada !"]],
+  ];
+  let chatT = 12, quietT = 0, chatLater = null;
+  function updateChatter(dt) {
+    if (!day || foot || onboard.length < 4) return;
+    if (quietT > 0) { quietT -= dt; return; }
+    if ((chatT -= dt) > 0) return;
+    chatT = rand(14, 26);
+    const [a, b] = CHAT[Math.floor(Math.random() * CHAT.length)], w1 = Math.random() < 0.5 ? "Passagère" : "Passager", w2 = w1 === "Passager" ? "Passagère" : "Passager";
+    SB.voice.sayText(w1, { fr: a[0], bm: a[1] });
+    clearTimeout(chatLater); chatLater = setTimeout(() => { if (mode === "play" && quietT <= 0 && day) SB.voice.sayText(w2, { fr: b[0], bm: b[1] }); }, 3200);
+  }
+  function quiet() {
+    if (mode !== "play" || foot || !day) return;
+    clearTimeout(chatLater);
+    const where = veh.type === "coach" ? "le car" : "le Sotrama";
+    ask("Toi", "Les passagers bavardent fort. Que fais-tu ?", [
+      { label: `Dire toi-même : « Silence dans ${where} ! »`, fn: () => {
+        SB.voice.sayText("Chauffeur", tr(`Silence dans ${where}, s'il vous plaît !`, "Aw ye makun, aw ye makun !"));
+        if (Math.random() < 0.7) quietT = 70; else { quietT = 0; chatT = 4; setTimeout(() => SB.voice.sayText("Passagère", tr("Eh chauffeur, on a bien le droit de parler !", "Sofɛri, an ka kan ka kuma dɛ !")), 2600); }
+      } },
+      { label: "Demander à l'apprenti de les calmer", fn: () => { quietT = 100; SB.voice.say("silence", null, true); } },
+      { label: "Les laisser parler", fn: () => {} },
+    ], false);
+  }
+  // the price of food can be discussed too
+  function foodTalk(f) {
+    if (f.menu) {
+      ask("Boutiquier", tr("Bonjour ! Qu'est-ce que tu veux ?", "I ni ce ! I mago bɛ mun na ?"), f.menu.map(([item, price, energy]) => ({ label: `${cap1(item)} · ${fmt(price)} F`, fn: () => buyFood({ item, price, energy, kind: "boutique" }, price) })).concat([{ label: "Rien, merci", fn: () => {} }]));
+      return;
+    }
+    const who = f.kind === "station" ? "Boutiquier" : f.name === "Vendeuse" ? "Vendeuse" : "Serveuse", low = Math.max(25, Math.round((f.price * 0.75) / 25) * 25);
+    ask(who, tr(`${cap1(f.item)}, c'est ${fmt(f.price)} F.`, `A sɔngɔ ye ${fmt(f.price)} F ye.`), [
+      { label: `Payer ${fmt(f.price)} F`, fn: () => buyFood(f, f.price) },
+      { label: `Négocier : ${fmt(low)} F ?`, fn: () => {
+        if (Math.random() < 0.55) { SB.voice.sayText(who, tr("Bon, pour toi c'est d'accord !", "A ka ɲi, i ta kama !")); buyFood(f, low); }
+        else ask(who, tr(`Non, ${fmt(f.price)} F c'est déjà le bon prix !`, `Ayi, ${fmt(f.price)} F ye sɔngɔ ɲuman ye !`), [{ label: `Payer ${fmt(f.price)} F`, fn: () => buyFood(f, f.price) }, { label: "Laisser tomber", fn: () => toast("Tu repars sans rien acheter") }]);
+      } },
+      { label: "Laisser tomber", fn: () => {} },
+    ]);
+  }
+  // pulled over: pay, apologise (maybe a warning or a reduced fine) or protest (it can go up)
+  function policeTalk(P) {
+    const fine = P.fine; day.offences = (day.offences || 0) + 1;
+    ask("Policier", tr(`${cap1(P.reason)} ! Les papiers du véhicule, s'il vous plaît. C'est une amende de ${fmt(fine)} F.`, `${cap1(P.reason)} ! Mobili papiyew di n ma. Amandi ye ${fmt(fine)} F ye.`), [
+      { label: `Payer l'amende (${fmt(fine)} F)`, fn: () => payFine(fine, tr("Merci. Bonne route, chauffeur, et prudence !", "I ni ce. Ala ka sira diya, sofɛri !")) },
+      { label: "S'excuser et expliquer", fn: () => {
+        if (Math.random() < (day.offences === 1 ? 0.75 : 0.5)) payFine(Math.round((fine * 0.5) / 100) * 100, tr("Vous êtes poli, je réduis l'amende de moitié.", "I ka ɲi, n bɛ amandi tilancɛ bɔ."));
+        else payFine(Math.round((fine * 0.8) / 100) * 100, tr("Bon… je vous fais un petit geste, mais vous payez.", "A ka ɲi… n bɛ dɔɔnin bɔ, nka i bɛ sara."));
+      } },
+      { label: "Protester", fn: () => { if (Math.random() < 0.25) payFine(fine, tr("Payez et circulez !", "I ye sara ka taa !")); else payFine(Math.round((fine * 1.5) / 100) * 100, tr("Vous voulez discuter ? L'amende augmente !", "I b'a fɛ ka sɔsɔli kɛ wa ? Amandi bɛ yɛlɛ !")); } },
+    ]);
+  }
+  function payFine(amount, line) { day.fines += amount; popCash("−" + fmt(amount) + " F", true); SB.voice.sayText("Policier", line); toast("Amende payée : " + fmt(amount) + " F", "bad"); policeDrive(); }
+  function policeDrive() { const P = police; if (!P) return; P.leaving = true; P.leaveT = 7; P.h = bus.h; P.x += Math.cos(bus.h) * 3.2; P.z -= Math.sin(bus.h) * 3.2; P.v = 3; }
+
   let toastT = 0;
   function toast(text, kind) { const t = $("toast"); t.textContent = text; t.className = "hud panel show" + (kind ? " " + kind : ""); toastT = kind === "call" ? 2.6 : 2.6; }
   function popCash(text, bad) { const el = document.createElement("div"); el.className = "pop" + (bad ? " bad" : ""); el.textContent = text; document.body.appendChild(el); setTimeout(() => el.remove(), 1200); }
 
   /* ---------- hub: career, fleet, team, garage ---------- */
   async function showGarage() {
-    mode = "garage"; day = null; onboard = []; onboardDirty = true; resetFoot(); endPursuit();
+    mode = "garage"; day = null; onboard = []; onboardDirty = true; resetFoot(); endPursuit(); closeTalk();
     if (S.city === "bamako") await loadCity();
     else if (!world.trip || world.trip.from !== S.city) await loadRoute(SB.mali.routesFrom(S.city)[0]);
     if (world.kind === "city") setupVehicle("sotrama"); else setupVehicle("coach", world.trip);
@@ -1041,8 +1337,8 @@
       return `<option value="">Personne (au garage)</option><option value="me" ${v.driver === "me" ? "selected" : ""}>Toi</option>` + drivers.filter((d) => !taken.has(d.id) || v.driver === d.id).map((d) => `<option value="${d.id}" ${v.driver === d.id ? "selected" : ""}>${esc(d.name)}${d.trained ? " (formé)" : ""}</option>`).join("");
     };
     $("fleet").innerHTML = (S.fleet.length ? S.fleet.map((v) => `<div class="up"><div><b>${esc(v.name)}</b><span>${v.type === "car" ? "Car de 60 places" : "Sotrama de 30 places"}</span></div><label class="sel">Conduite par <select data-veh="${v.id}">${opts(v)}</select></label></div>`).join("")
-      : `<p class="muted">Aucun véhicule. ${S.permis ? "Tu loues la Sotrama du patron." : "Tu conduis la Sotrama du patron comme apprenti."}</p>`)
-      + `<div class="row-btns">${S.permis ? `<button type="button" class="small ghost" data-buy="sotrama" ${S.savings < PRICE.sotrama ? "disabled" : ""}>Acheter une Sotrama · ${fmt(PRICE.sotrama)} F</button>` : ""}${S.permisCar ? `<button type="button" class="small ghost" data-buy="car" ${S.savings < PRICE.car ? "disabled" : ""}>Acheter un car · ${fmt(PRICE.car)} F</button>` : ""}</div>`;
+      : `<p class="muted">Aucun véhicule. ${S.permis ? "Tu loues le Sotrama du patron." : "Tu conduis le Sotrama du patron comme apprenti."}</p>`)
+      + `<div class="row-btns">${S.permis ? `<button type="button" class="small ghost" data-buy="sotrama" ${S.savings < PRICE.sotrama ? "disabled" : ""}>Acheter un Sotrama · ${fmt(PRICE.sotrama)} F</button>` : ""}${S.permisCar ? `<button type="button" class="small ghost" data-buy="car" ${S.savings < PRICE.car ? "disabled" : ""}>Acheter un car · ${fmt(PRICE.car)} F</button>` : ""}</div>`;
     // team
     $("team").innerHTML = (S.staff.length ? S.staff.map((p) => `<div class="up"><div><b>${esc(p.name)}</b><span>${p.role === "chauffeur" ? "Chauffeur" + (p.trained ? " formé par toi" : "") : p.ready ? "Apprenti prêt à devenir chauffeur" : "Apprenti · " + p.days + "/12 jours de formation"}</span></div>${p.ready ? `<button type="button" class="small" data-promote="${p.id}">Le nommer chauffeur</button>` : ""}</div>`).join("") : `<p class="muted">Personne pour l'instant. Un apprenti fait monter les passagers plus vite et devient chauffeur après 12 jours.</p>`)
       + `<div class="row-btns"><button type="button" class="small ghost" data-hire="apprenti" ${S.savings < PRICE.apprenti ? "disabled" : ""}>Prendre un apprenti · ${fmt(PRICE.apprenti)} F</button>${S.fleet.length ? `<button type="button" class="small ghost" data-hire="chauffeur" ${S.savings < PRICE.hire ? "disabled" : ""}>Embaucher un chauffeur · ${fmt(PRICE.hire)} F</button>` : ""}</div>`;
@@ -1058,6 +1354,8 @@
     $("upgrades").innerHTML = up("engine", ENGINE.map((e) => ({ v: Math.round(e.v * 3.6), price: e.price })), "Moteur", "km/h") + up("tank", TANK, "Réservoir", "L");
     $("qualityBtn").textContent = "Graphismes : " + ({ eco: "économie", haute: "haute qualité", ultra: "ultra (4K)" }[S.quality] || "haute qualité");
     $("soundBtn").textContent = "Son : " + (S.sound ? "oui" : "non");
+    $("langBtn").textContent = "Langue des personnages : " + (S.lang === "bm" ? "bambara" : "français");
+    $("mouseBtn").hidden = isTouch; $("mouseBtn").textContent = "Diriger à la souris : " + (mouse.steer ? "oui" : "non");
     $("voiceBtn").textContent = "Voix : " + (S.voice ? "oui" : "non");
     const shop = SB.purchases.available && !S.noAds;
     $("btnNoAds").hidden = !shop; $("btnRestore").hidden = !SB.purchases.available;
@@ -1107,7 +1405,7 @@
     const pickR = routes.find((r) => r.to === maliPick);
     if (maliPick === "city") html += `<button type="button" class="cta wide" data-go="city">Démarrer la journée</button>`;
     else if (pickR) html += S.permisCar ? `<button type="button" class="cta wide" data-go="${pickR.to}">Partir pour ${esc(M.CITIES[pickR.to].name)}</button>` : `<p class="warn">Il te faut le permis car (${fmt(PRICE.permisCar)} F) pour conduire un car. Regarde l'objectif dans le menu.</p>`;
-    html += `<p class="muted">Les villes en gris arrivent bientôt.</p><button type="button" class="small ghost" data-go="back">Retour</button>`;
+    html += `<p class="muted">Les villes en gris se rejoignent en passant par une autre ville.</p><button type="button" class="small ghost" data-go="back">Retour</button>`;
     $("maliSide").innerHTML = html;
   }
   function onMaliClick(e) {
@@ -1140,6 +1438,16 @@
   }
   const ding = () => { tone([988], "sine", 0.12, 0.12); tone([1318], "sine", 0.18, 0.1, 0.09); };
   const tick = () => tone([660], "triangle", 0.06, 0.06);
+  // a police whistle: two sharp blasts with the trill of the little ball inside
+  function whistle() {
+    if (!actx) return;
+    for (const [t0, dur] of [[0, 0.22], [0.3, 0.55]]) {
+      const t = actx.currentTime + t0, o = actx.createOscillator(), lfo = actx.createOscillator(), lg = actx.createGain(), g = actx.createGain();
+      o.type = "sine"; o.frequency.value = 2900; lfo.frequency.value = 38; lg.gain.value = 140; lfo.connect(lg); lg.connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.02); g.gain.setValueAtTime(0.09, t + dur - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(master); o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+    }
+  }
   function thud() {
     if (!actx) return; const len = actx.sampleRate * 0.25, buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
@@ -1160,8 +1468,11 @@
       const k = KEYMAP[e.code];
       if (k && mode === "play") { keys[k] = true; e.preventDefault(); }
       if (e.repeat) return;
+      if (mode === "talk" && /^(Digit|Numpad)[1-6]$/.test(e.code)) { answer(+e.code.slice(-1) - 1); return; }
       if (e.code === "KeyH" && mode === "play" && !foot) honk();
       if (e.code === "KeyE") doAction();
+      if (e.code === "KeyV") toggleMouseSteer();
+      if (e.code === "KeyT") quiet();
       if (e.code === "KeyC") cycleCam();
       if (e.code === "KeyM") toggleMap();
       if (e.code === "KeyP" || e.code === "Escape") { if (mode === "map") toggleMap(false); else togglePause(); }
@@ -1179,11 +1490,34 @@
       btn.addEventListener("contextmenu", (e) => e.preventDefault());
     }
     $("btnCam").addEventListener("click", cycleCam);
+    const cv = renderer.domElement;
+    cv.addEventListener("contextmenu", (e) => e.preventDefault());
+    cv.addEventListener("mousedown", (e) => {
+      if (e.button === 2 || e.button === 1) { mouse.look = true; mouse.lx = e.clientX; mouse.ly = e.clientY; e.preventDefault(); }
+      if (e.button === 0 && mouse.steer && mode === "play") { initAudio(); mouse.gas = true; keys.up = true; }
+    });
+    window.addEventListener("mouseup", (e) => { if (e.button === 2 || e.button === 1) mouse.look = false; if (e.button === 0 && mouse.gas) { mouse.gas = false; keys.up = false; } });
+    window.addEventListener("mousemove", (e) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      if (mouse.look) { mouse.yaw -= (e.clientX - mouse.lx) * 0.006; mouse.pitch = Math.max(-0.35, Math.min(0.7, mouse.pitch + (e.clientY - mouse.ly) * 0.004)); mouse.lx = e.clientX; mouse.ly = e.clientY; }
+    });
+    cv.addEventListener("wheel", (e) => { if (mode !== "play" && mode !== "pause") return; e.preventDefault(); mouse.zoom = Math.max(0.55, Math.min(1.9, mouse.zoom * (1 + Math.sign(e.deltaY) * 0.1))); }, { passive: false });
+    cv.style.cursor = mouse.steer ? "crosshair" : "";
+    $("mouseBtn").addEventListener("click", toggleMouseSteer);
+    $("langBox").addEventListener("click", (e) => { const b = e.target.closest("[data-lang]"); if (b) { initAudio(); setLang(b.dataset.lang); } });
+    $("langBtn").addEventListener("click", () => setLang(S.lang === "bm" ? "fr" : "bm"));
+    $("btnQuiet").addEventListener("click", () => { initAudio(); quiet(); });
     $("btnFoot").addEventListener("click", () => { initAudio(); if (!foot) toggleFoot(); else if (doorDist() < 3.2) toggleFoot(); else toast("Approche-toi de la portière"); });
     $("interact").addEventListener("click", () => { initAudio(); doAction(); });
+    $("talkOpts").addEventListener("click", (e) => { const b = e.target.closest("[data-opt]"); if (b) answer(+b.dataset.opt); });
     $("btnMap").addEventListener("click", () => toggleMap());
     $("radar").addEventListener("click", () => toggleMap());
     $("btnCloseMap").addEventListener("click", () => toggleMap(false));
+    big.addEventListener("click", (e) => {
+      if (!bigTf) return;
+      const r = big.getBoundingClientRect(), k = big.width / r.width, cx = (e.clientX - r.left) * k, cy = (e.clientY - r.top) * k;
+      setMarker(bigTf.b.x0 + (cx - bigTf.ox) / bigTf.s, bigTf.b.z0 + (cy - bigTf.oy) / bigTf.s); drawBigMap();
+    });
     $("btnPause").addEventListener("click", togglePause);
     $("btnResume").addEventListener("click", togglePause);
     $("btnQuit").addEventListener("click", () => { show("pauseBox", false); day = null; showGarage(); });
@@ -1204,6 +1538,18 @@
     window.addEventListener("resize", () => { renderer.setSize(window.innerWidth, window.innerHeight); camera.aspect = window.innerWidth / window.innerHeight; viewShift = -1; camera.clearViewOffset(); camera.updateProjectionMatrix(); sizeMaps(); if (mode === "map") drawBigMap(); });
     sizeMaps();
   }
+  function setLang(l) {
+    S.lang = l; save(); SB.voice.setLang(l);
+    if (!$("langBox").hidden) { show("langBox", false); showGarage(); SB.voice.say("bonjour_matin", null, true); }
+    renderGarage();
+  }
+  function toggleMouseSteer() {
+    if (isTouch) return;
+    mouse.steer = !mouse.steer; S.mouseSteer = mouse.steer; save();
+    renderer.domElement.style.cursor = mouse.steer ? "crosshair" : "";
+    if (mode === "play") toast(mouse.steer ? "Direction à la souris : bouge la souris à gauche ou à droite, clic gauche pour accélérer" : "Direction au clavier");
+    renderGarage();
+  }
   function cycleCam() { camMode = (camMode + 1) % CAMS.length; if (mode === "play") toast(CAMS[camMode]); }
   function togglePause() { if (mode === "play") { mode = "pause"; show("pauseBox", true); } else if (mode === "pause") { initAudio(); mode = "play"; show("pauseBox", false); } }
   function show(id, yes) { $(id).hidden = !yes; document.body.classList.toggle("in-" + id, !!yes); }
@@ -1213,11 +1559,11 @@
   let last = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    const frozen = mode === "pause" || mode === "map" || mode === "panne";
+    const frozen = mode === "pause" || mode === "map" || mode === "panne" || mode === "talk";
     if (!frozen) time += dt;
-    if (mode === "play") { if (foot) updateWalker(dt); else { updateBus(dt); checkRedLight(dt); } updatePolice(dt); updateStops(dt); updateEnergy(dt); elapsed += dt; if (day.kind === "city" && elapsed >= DAY) endDay(); }
+    if (mode === "play") { if (foot) updateWalker(dt); else { updateBus(dt); checkRedLight(dt); } updatePolice(dt); updateStops(dt); updateEnergy(dt); updateChatter(dt); updateGps(dt); elapsed += dt; if (day.kind === "city" && elapsed >= DAY) endDay(); }
     else if (engGain) engGain.gain.value = 0;
-    if (!frozen) { updateTraffic(dt); updatePeople(dt); }
+    if (!frozen) { updateTraffic(dt); updatePeople(dt); updateBirds(dt); updateApprenti(dt); if (world.spin) for (const o of world.spin) o.rotation.y += dt * 0.35; }
     if (!frozen && world.water) {
       world.texWater.offset.x = (time * 0.004) % 1; world.texWater.offset.y = (time * 0.01) % 1;
       const pa = world.waterGeo.attributes.position, arr = pa.array, base = world.waterBase;

@@ -460,6 +460,22 @@
     const map = toTex(c, false), emissive = new THREE.CanvasTexture(c2);
     return { map, emissive };
   };
+  T.flagMali = () => {
+    const [c, g] = canvas(192, 128);
+    [["#14b53a", 0], ["#fcd116", 64], ["#ce1126", 128]].forEach(([col, x]) => { g.fillStyle = col; g.fillRect(x, 0, 64, 128); });
+    return toTex(c, false);
+  };
+  // street name plates, one per row: blue enamel with a white border
+  T.streetSigns = (names) => {
+    const H = 64, [c, g] = canvas(1024, 1024);
+    names.forEach((n, i) => {
+      const y = i * H;
+      g.fillStyle = "#1f3f8a"; roundRect(g, 4, y + 4, 1016, H - 8, 10); g.fill();
+      g.strokeStyle = "#ffffff"; g.lineWidth = 4; roundRect(g, 10, y + 10, 1004, H - 20, 6); g.stroke();
+      g.fillStyle = "#ffffff"; g.textAlign = "center"; g.textBaseline = "middle"; fitText(g, n.toUpperCase(), 960, 40, 700, COND); g.fillText(n.toUpperCase(), 512, y + H / 2 + 1);
+    });
+    return toTex(c, false);
+  };
   T.policeDoor = () => {
     const [c, g] = canvas(256, 64);
     g.fillStyle = "#f4f4f0"; g.fillRect(0, 0, 256, 64);

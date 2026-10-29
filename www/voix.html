@@ -31,6 +31,7 @@
     .row .ok { font-size: 12px; color: #7fd49a; }
     .btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
     #msg { min-height: 1.4em; color: var(--gold); }
+    button.lang.on { background: var(--gold); border-color: var(--gold); color: var(--ink); }
     @media (max-width: 560px) { .row { grid-template-columns: 1fr; } .btns { justify-content: flex-start; } }
   </style>
 </head>
@@ -38,8 +39,12 @@
   <main>
     <a class="back" href="index.html">Retour au jeu</a>
     <h1>Studio de voix</h1>
-    <p>Enregistre ta propre voix pour l'apprenti, les passagers et les policiers. Tes enregistrements sont utilisés tout de suite dans le jeu, sur cet appareil.</p>
+    <p>Enregistre ta propre voix pour l'apprenti, les passagers et les policiers, en français ou en bambara. Tes enregistrements sont utilisés tout de suite dans le jeu, sur cet appareil.</p>
     <p class="muted">Pour que tout le monde entende ta voix dans l'application, clique sur « Tout télécharger », dézippe le fichier dans le dossier <b>www/voix/</b> du projet, puis fais un <b>git push</b>.</p>
+    <div class="top" role="group" aria-label="Langue">
+      <button type="button" id="langFr" class="lang">Français</button>
+      <button type="button" id="langBm" class="lang">Bamanankan (bambara)</button>
+    </div>
     <div class="top">
       <button class="main" id="zip" type="button">Tout télécharger (.zip)</button>
       <span id="count" class="muted"></span>
@@ -54,14 +59,17 @@
   (function () {
     "use strict";
     const V = window.SB.voice, $ = (id) => document.getElementById(id);
-    const lines = V.catalog();
+    let lang = "fr";
+    try { lang = (JSON.parse(localStorage.getItem("sotrama-bamako-save-v2") || "{}").lang) === "bm" ? "bm" : "fr"; } catch (e) { /* default */ }
+    let lines = V.catalog(lang);
+    const setLang = (l) => { lang = l; lines = V.catalog(lang); $("langFr").classList.toggle("on", lang === "fr"); $("langBm").classList.toggle("on", lang === "bm"); render(); };
     let recorder = null, chunks = [], recId = null, stream = null;
     const ext = (type) => (type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm");
     const msg = (t) => { $("msg").textContent = t; };
 
     async function render() {
       const have = new Set((await V.store.keys()) || []);
-      $("count").textContent = have.size + " / " + lines.length + " phrases enregistrées";
+      $("count").textContent = lines.filter((l) => have.has(l.id)).length + " / " + lines.length + " phrases enregistrées en " + (lang === "bm" ? "bambara" : "français");
       const groups = {};
       for (const l of lines) (groups[l.group] = groups[l.group] || []).push(l);
       let html = "";
@@ -110,7 +118,9 @@
       const a = document.createElement("a"); a.href = URL.createObjectURL(out); a.download = "voix-sotrama.zip"; document.body.appendChild(a); a.click(); a.remove();
       msg("Fichier voix-sotrama.zip téléchargé : dézippe-le dans www/voix/.");
     });
-    render();
+    $("langFr").addEventListener("click", () => setLang("fr"));
+    $("langBm").addEventListener("click", () => setLang("bm"));
+    setLang(lang);
   })();
   </script>
 </body>

@@ -48,6 +48,11 @@
       for (const l of lots) if (Math.hypot(x - l.x, z - l.z) <= l.r) return true;
       return false;
     }
+    function drivable(x, z) {
+      if (inRoad(x, z)) return 2;
+      const s = -z;
+      return s > -60 && s < L + 60 && Math.abs(x - f(s)) <= HW + 4 ? 1 : 0;
+    }
     function nearestRoad(x, z) {
       const i = Math.max(0, Math.min(roads.length - 1, Math.floor((-z + 60) / STEP)));
       return { d: Math.abs(x - f(-z)) - HW, rd: roads[i] };
@@ -91,7 +96,17 @@
     }
     const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
     const M = (x, y, z, sx, sy, sz, rx, ry, rz) => { _e.set(rx || 0, ry || 0, rz || 0); _q.setFromEuler(_e); return new THREE.Matrix4().compose(_p.set(x, y, z), _q, _s.set(sx, sy, sz)); };
-    const INST = { box: [], cyl: [], cone: [], ico: [], stem: [], trunk: [], hut: [], roofc: [] };
+    const INST = { box: [], cyl: [], cone: [], ico: [], stem: [], trunk: [], hut: [], roofc: [], canopy: [] };
+    function canopyGeo() {
+      const pos = [];
+      for (const [x, y, z, r] of [[0, 0, 0, 1], [0.55, 0.15, 0.25, 0.72], [-0.52, 0.1, -0.3, 0.75], [0.05, 0.42, -0.4, 0.62]]) {
+        const g = new THREE.IcosahedronGeometry(r, 0); g.scale(1, 0.8, 1); g.translate(x, y, z); pos.push(...g.attributes.position.array);
+      }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals();
+      const col = []; for (let i = 0; i < pos.length; i += 3) { const v = 0.55 + 0.45 * Math.max(0, Math.min(1, (pos[i + 1] + 0.8) / 1.5)); col.push(v, v, v * 0.94); }
+      geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+      return geo;
+    }
     const iBox = (x, y0, z, sx, sy, sz, col, ry) => INST.box.push({ m: M(x, y0 + sy / 2, z, sx, sy, sz, 0, ry || 0, 0), c: col });
     const iCyl = (x, y, z, r, h, col, rx, ry, rz) => INST.cyl.push({ m: M(x, y, z, 2 * r, h, 2 * r, rx || 0, ry || 0, rz || 0), c: col });
     const iCone = (x, y0, z, r, h, col) => INST.cone.push({ m: M(x, y0 + h / 2, z, r, h, r), c: col });
@@ -133,7 +148,7 @@
     }
 
     /* ---- stops: departure station, villages, arrival station ---- */
-    const stops = [], stations = [], checkpoints = [], landmarks = [], parked = [];
+    const stops = [], stations = [], checkpoints = [], landmarks = [], parked = [], polCars = [], polMotos = [];
     function makeStop(name, s, kind) {
       const zone = at(s, HW + (kind === "village" ? 3 : 8)), shelter = at(s, HW + (kind === "village" ? 10 : 20)), d = dir(s), r = right(s);
       const st = { i: stops.length, name, kind, s, zx: zone[0], zz: zone[1], sx: shelter[0], sz: shelter[1], nx: r[0], nz: r[1], dx: d[0], dz: d[1], ang: Math.atan2(d[0], d[1]), bank: "", waiting: [], spawnT: 0 };
@@ -143,7 +158,7 @@
     addLot(30, HW + 14, 24, true);
     makeStop("Gare routière de " + fromName, 30, "gare");
     // villages
-    for (const [name, km] of trip.towns) {
+    for (const [name, km] of trip.towns.length ? trip.towns : [["Village de " + (trip.km > 200 ? "brousse" : "bord de route"), trip.km / 2]]) {
       const s = (km / trip.km) * L;
       if (s < 200 || s > L - 250) continue;
       addLot(s, HW + 4, 9, false);
@@ -166,6 +181,7 @@
         for (const o of [HW + 1.2, -HW - 1.2]) { for (let k = -2; k <= 2; k++) { const c = at(cp.s + 10 + k * 2.2, o); iCone(c[0], 0.08, c[1], 0.3, 0.8, C(0xff6a1a)); } }
         const bar = at(cp.s - 2, HW + 2); iBox(bar[0], 0.9, bar[1], 0.18, 0.18, 4, C(0xffffff), ang + Math.PI / 2);
         cp.people = [at(cp.s - 2, HW + 1.4), at(cp.s + 3, HW + 2.2)];
+        const pc = at(cp.s + 9, HW + 4.5), pmo = at(cp.s - 9, HW + 3.2); polCars.push({ x: pc[0], z: pc[1], ang }); polMotos.push({ x: pmo[0], z: pmo[1], ang: ang + 0.5 });
         const sg = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.roadSign("CONTRÔLE DE POLICE", "ARRÊT OBLIGATOIRE", "#2b3a5c") })); const sp = at(cp.s - 60, HW + 4); sg.position.set(sp[0], 3.6, sp[1]); sg.scale.set(7, 2.7, 1); scene.add(sg);
       } else {
         const c = at(cp.s, 0); iBox(c[0], 5.5, c[1], 2 * HW + 10, 0.7, 7, C(0xf2b233), ang);
@@ -210,8 +226,7 @@
       const big = kind === "karite", h = rr(2.2, 3.4), tr = big ? 0.3 : 0.22;
       INST.stem.push({ m: M(x, h / 2, z, 2 * tr, h, 2 * tr), c: C(0x5e4330, 0.2) });
       const r = big ? rr(2.8, 4) : rr(2, 3), col = kind === "neem" ? 0x56823a : kind === "karite" ? 0x5f7d34 : 0x6f8a3c;
-      iIco(x, h + r * 0.5, z, r, C(col, 0.25), 0.75);
-      iIco(x + rr(-1.4, 1.4), h + r * 0.9, z + rr(-1.4, 1.4), r * 0.65, C(col, 0.3), 0.8);
+      INST.canopy.push({ m: M(x, h + r * 0.5, z, r, r * 0.8, r, 0, rnd() * 6.28, 0), c: C(col, 0.22) });
     }
     // savanna along the whole road
     const density = ECO ? 0.6 : 1;
@@ -285,6 +300,8 @@
       food.push({ x: p[0] - st.nx * 1.1, z: p[1] - st.nz * 1.1, name: "Vendeuse", item: "des brochettes et du pain", price: 500, energy: 55, kind: "brochettes" });
     }
 
+    if (polCars.length) { const f = SB.policeFleet(scene, polCars.length); polCars.forEach((p, i) => f.set(i, p.x, 0.08, p.z, p.ang)); f.commit(); }
+    if (polMotos.length) { const f = SB.policeMotoFleet(scene, polMotos.length); polMotos.forEach((p, i) => f.set(i, p.x, 0.08, p.z, p.ang, 0.12)); f.commit(); }
     /* ---- flush ---- */
     finish(shB, std({ map: texSand, vertexColors: true, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }), false);
     finish(roadB, std({ map: texRoad, vertexColors: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }), false);
@@ -302,10 +319,11 @@
     flushInst(new THREE.CylinderGeometry(0.4, 0.5, 1, 5, 1, true), INST.stem, null, true);
     flushInst(new THREE.ConeGeometry(1, 1, 7), INST.cone, null, true);
     flushInst(new THREE.IcosahedronGeometry(1, 0), INST.ico, null, true);
+    flushInst(canopyGeo(), INST.canopy, std({ flatShading: true, vertexColors: true }));
 
     landmarks.push({ name: destName, x: f(L), z: -L });
     return {
-      kind: "route", trip, L, nodes, roads, stops, stations, checkpoints, landmarks, parked, inRoad, nearestRoad, progress, at, food, vendors,
+      kind: "route", trip, L, nodes, roads, stops, stations, checkpoints, landmarks, parked, inRoad, drivable, nearestRoad, progress, at, food, vendors,
       RING: 12, RIVER: null, water: null,
       bounds: { x0: -400, x1: 400, z0: -L - 200, z1: 200 },
       start: { x: at(30, HW + 14)[0] - 6, z: at(30, HW + 14)[1] + 14, h: Math.PI },
